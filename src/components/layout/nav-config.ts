@@ -11,6 +11,7 @@ export type NavIcon =
   | "upload"
   | "log"
   | "shield"
+  | "clinic"
   | "bell";
 
 export type NavItem = { label: string; href: string; icon: NavIcon; exact?: boolean };
@@ -33,11 +34,13 @@ export const NAV: Record<UserRole, NavItem[]> = {
     { label: "Perdu / Trouvé", href: "/signalements", icon: "pin" },
     { label: "Importer un CSV", href: "/veterinaire/import", icon: "upload" },
     { label: "Journal d'accès", href: "/veterinaire/journal", icon: "log" },
+    { label: "Ma clinique", href: "/veterinaire/clinique", icon: "clinic" },
     { label: "Paramètres", href: "/parametres", icon: "settings" },
   ],
   admin: [
     { label: "Vue d'ensemble", href: "/admin", icon: "dashboard", exact: true },
-    { label: "Vétérinaires", href: "/admin/veterinaires", icon: "shield" },
+    { label: "Animaux", href: "/mes-animaux", icon: "paw" },
+    { label: "Cliniques", href: "/admin/veterinaires", icon: "shield" },
     { label: "Signalements", href: "/signalements", icon: "pin" },
     { label: "Transferts", href: "/transferts", icon: "transfer" },
     { label: "Journal d'accès", href: "/admin/journal", icon: "log" },

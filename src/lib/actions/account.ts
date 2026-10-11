@@ -1,13 +1,15 @@
 "use server";
 
 import { headers } from "next/headers";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { APIError } from "better-auth/api";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
+import { claimRecords } from "@/lib/invitations";
 import { requireUser } from "@/lib/session";
-import { fieldErrorsFrom, optional, str, type ActionState } from "./state";
+import { fieldErrorsFrom, str, type ActionState } from "./state";
 
 const signUpSchema = z
   .object({
@@ -71,30 +73,22 @@ export async function signUp(_prev: ActionState, form: FormData): Promise<Action
   }
 
   if (d.role === "vet") {
+    // Un vétérinaire qui s'inscrit seul crée sa clinique et en devient responsable.
     await db.update(schema.user).set({ role: "vet" }).where(eq(schema.user.id, userId));
+    const [clinic] = await db
+      .insert(schema.clinic)
+      .values({ name: d.clinicName!, city: d.city!, phone: d.phone, email: d.email })
+      .returning({ id: schema.clinic.id });
     await db.insert(schema.vetProfile).values({
       userId,
-      clinicName: d.clinicName!,
+      clinicId: clinic.id,
+      clinicRole: "manager",
       orderNumber: d.orderNumber!,
-      city: d.city!,
-      phone: d.phone,
     });
   }
 
   await claimRecords(userId, d.email);
   return { ok: true };
-}
-
-/** Rattache au nouveau compte les animaux et transferts saisis avec son e-mail. */
-async function claimRecords(userId: string, email: string) {
-  await db
-    .update(schema.animal)
-    .set({ ownerId: userId })
-    .where(and(eq(schema.animal.ownerEmail, email), isNull(schema.animal.ownerId)));
-  await db
-    .update(schema.transfer)
-    .set({ toUserId: userId })
-    .where(and(eq(schema.transfer.toEmail, email), isNull(schema.transfer.toUserId)));
 }
 
 const profileSchema = z.object({
@@ -118,28 +112,8 @@ export async function updateProfile(_prev: ActionState, form: FormData): Promise
   return { ok: true, message: "Profil mis à jour." };
 }
 
-export async function updateVetProfile(_prev: ActionState, form: FormData): Promise<ActionState> {
-  const user = await requireUser();
-  if (user.role !== "vet") return { error: "Réservé aux vétérinaires." };
-  const clinicName = str(form, "clinicName");
-  const city = str(form, "city");
-  if (clinicName.length < 2) return { fieldErrors: { clinicName: "Indiquez le nom de la clinique" } };
-  if (city.length < 2) return { fieldErrors: { city: "Indiquez la ville" } };
-  await db
-    .update(schema.vetProfile)
-    .set({
-      clinicName,
-      city,
-      address: optional(form, "address"),
-      phone: optional(form, "clinicPhone"),
-      listedPublicly: form.get("listedPublicly") === "on",
-    })
-    .where(eq(schema.vetProfile.userId, user.id));
-  return { ok: true, message: "Informations de la clinique mises à jour." };
-}
-
 export async function changePassword(_prev: ActionState, form: FormData): Promise<ActionState> {
-  await requireUser();
+  const user = await requireUser();
   const currentPassword = str(form, "currentPassword");
   const newPassword = str(form, "newPassword");
   if (newPassword.length < 8) return { fieldErrors: { newPassword: "8 caractères minimum" } };
@@ -154,5 +128,36 @@ export async function changePassword(_prev: ActionState, form: FormData): Promis
   } catch {
     return { fieldErrors: { currentPassword: "Mot de passe actuel incorrect" } };
   }
+  await db.update(schema.user).set({ mustChangePassword: false }).where(eq(schema.user.id, user.id));
   return { ok: true, message: "Mot de passe modifié. Vos autres sessions ont été déconnectées." };
+}
+
+/** Première connexion d'un compte invité : remplace le mot de passe provisoire. */
+export async function setInitialPassword(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const user = await requireUser({ allowTemporaryPassword: true });
+  if (!user.mustChangePassword) return { ok: true };
+
+  const newPassword = str(form, "newPassword");
+  if (newPassword.length < 8) return { fieldErrors: { newPassword: "8 caractères minimum" } };
+  if (newPassword !== str(form, "confirm")) {
+    return { fieldErrors: { confirm: "Les mots de passe ne correspondent pas" } };
+  }
+
+  const credential = await db.query.account.findFirst({
+    where: and(eq(schema.account.userId, user.id), eq(schema.account.providerId, "credential")),
+  });
+  if (!credential?.password) return { error: "Compte introuvable. Contactez le support." };
+  if (await verifyPassword({ hash: credential.password, password: newPassword })) {
+    return { fieldErrors: { newPassword: "Choisissez un mot de passe différent du mot de passe provisoire" } };
+  }
+
+  await db
+    .update(schema.account)
+    .set({ password: await hashPassword(newPassword), updatedAt: new Date() })
+    .where(eq(schema.account.id, credential.id));
+  await db
+    .update(schema.user)
+    .set({ mustChangePassword: false, emailVerified: true, updatedAt: new Date() })
+    .where(eq(schema.user.id, user.id));
+  return { ok: true, message: "Mot de passe enregistré. Bienvenue sur Puce ID !" };
 }

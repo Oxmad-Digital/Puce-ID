@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight,
   Bell,
+  Building2,
   FileClock,
   LayoutDashboard,
   MapPin,
@@ -29,6 +30,7 @@ const ICONS: Record<NavIcon, typeof Bell> = {
   upload: Upload,
   log: FileClock,
   shield: ShieldCheck,
+  clinic: Building2,
   bell: Bell,
 };
 

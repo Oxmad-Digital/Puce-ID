@@ -1,62 +1,71 @@
-import { reviewVet } from "@/lib/actions/vet";
-import { listAllVets } from "@/lib/data/queries";
+import { Building2, Plus, UserPlus } from "lucide-react";
+import { listClinicsWithMembers } from "@/lib/data/queries";
 import { requireRole } from "@/lib/session";
-import { formatDate } from "@/lib/utils";
-import { Avatar, Badge, Button, Card, PageHeader } from "@/components/ui";
+import { Badge, Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
+import { Modal } from "@/components/modal";
+import { InviteClinicForm, InviteColleagueForm } from "@/components/forms/clinic-forms";
+import { ClinicMembers } from "@/components/app/clinic-members";
 
-export const metadata = { title: "Vétérinaires" };
-
-const STATUS = {
-  pending: { label: "En attente", tone: "amber" },
-  verified: { label: "Vérifié", tone: "green" },
-  rejected: { label: "Refusé", tone: "red" },
-} as const;
+export const metadata = { title: "Cliniques & vétérinaires" };
 
 export default async function AdminVetsPage() {
   await requireRole("admin");
-  const vets = await listAllVets();
+  const clinics = await listClinicsWithMembers();
+  const pending = clinics.reduce((n, c) => n + c.members.filter((m) => m.status === "pending").length, 0);
+
   return (
     <>
-      <PageHeader title="Vétérinaires" description="Vérification des numéros d'ordre et gestion des accès" />
-      <Card className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-line text-[11px] text-muted">
-              <th className="px-5 py-2.5 font-medium">Vétérinaire</th>
-              <th className="px-3 py-2.5 font-medium">Clinique</th>
-              <th className="px-3 py-2.5 font-medium">N° d&apos;ordre</th>
-              <th className="px-3 py-2.5 font-medium">Inscrit le</th>
-              <th className="px-3 py-2.5 font-medium">Statut</th>
-              <th className="px-5 py-2.5" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {vets.map((v) => (
-              <tr key={v.userId}>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={v.name} size="sm" tone="accent" />
-                    <div>
-                      <p className="font-medium text-ink">Dr {v.name}</p>
-                      <p className="text-[11px] text-muted">{v.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-3 py-3 text-muted">{v.clinicName}, {v.city}</td>
-                <td className="px-3 py-3 font-mono text-xs">{v.orderNumber}</td>
-                <td className="px-3 py-3 text-muted">{formatDate(v.createdAt)}</td>
-                <td className="px-3 py-3"><Badge tone={STATUS[v.status].tone}>{STATUS[v.status].label}</Badge></td>
-                <td className="px-5 py-3">
-                  <div className="flex justify-end gap-2">
-                    {v.status !== "verified" && <form action={reviewVet.bind(null, v.userId, true)}><Button size="sm">Valider</Button></form>}
-                    {v.status !== "rejected" && <form action={reviewVet.bind(null, v.userId, false)}><Button size="sm" variant="ghost">{v.status === "verified" ? "Suspendre" : "Refuser"}</Button></form>}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      <PageHeader
+        title="Cliniques & vétérinaires"
+        description={`${clinics.length} clinique${clinics.length > 1 ? "s" : ""}${pending ? ` · ${pending} numéro${pending > 1 ? "s" : ""} d'ordre à vérifier` : ""}`}
+        actions={
+          <Modal
+            trigger={<><Plus className="size-4" /> Inviter une clinique</>}
+            title="Inviter une clinique"
+            description="La clinique et son vétérinaire responsable reçoivent leurs identifiants par e-mail."
+            variant="primary"
+          >
+            <InviteClinicForm />
+          </Modal>
+        }
+      />
+
+      {clinics.length === 0 ? (
+        <Card>
+          <EmptyState icon={<Building2 className="size-5" />} title="Aucune clinique" description="Invitez une première clinique pour démarrer." />
+        </Card>
+      ) : (
+        <div className="space-y-5">
+          {clinics.map((c) => (
+            <Card key={c.id}>
+              <CardHeader
+                title={
+                  <span className="flex flex-wrap items-center gap-2">
+                    {c.name}
+                    {!c.listedPublicly && <Badge tone="gray">Hors annuaire</Badge>}
+                  </span>
+                }
+                description={[c.address, c.city].filter(Boolean).join(", ") + ` · ${c.animals} animal${c.animals > 1 ? "aux suivis" : " suivi"}`}
+                action={
+                  <Modal
+                    trigger={<><UserPlus className="size-3.5" /> Vétérinaire</>}
+                    title={`Inviter un vétérinaire — ${c.name}`}
+                    description="Invité par l'administration, son compte est directement vérifié."
+                    size="sm"
+                  >
+                    <InviteColleagueForm clinicId={c.id} byAdmin />
+                  </Modal>
+                }
+              />
+              {c.members.length ? (
+                <ClinicMembers members={c.members} canManage isAdmin />
+              ) : (
+                <p className="px-5 py-4 text-xs text-muted">Aucun vétérinaire rattaché.</p>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
     </>
   );
 }

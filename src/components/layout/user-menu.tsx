@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, LogOut, Settings, User } from "lucide-react";
+import { ChevronDown, Globe, LogOut, Settings, User } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Avatar } from "@/components/ui";
 
@@ -55,6 +55,9 @@ export function UserMenu({
           </Link>
           <Link href="/parametres#securite" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface">
             <Settings className="size-4 text-muted" /> Paramètres
+          </Link>
+          <Link href="/" className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface">
+            <Globe className="size-4 text-muted" /> Retour au site
           </Link>
           <button
             type="button"

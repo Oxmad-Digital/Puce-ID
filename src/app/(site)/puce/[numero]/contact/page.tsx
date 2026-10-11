@@ -31,7 +31,7 @@ export default async function ContactOwnerPage({ params }: PageProps<"/puce/[num
       >
         <div className="flex gap-2 rounded-lg bg-brand-50 p-3 text-xs text-brand-800">
           <Lock className="mt-0.5 size-3.5 shrink-0" />
-          Votre message est relayé par PawSafe. Le propriétaire reçoit vos coordonnées pour vous
+          Votre message est relayé par Puce ID. Le propriétaire reçoit vos coordonnées pour vous
           répondre, mais les siennes restent confidentielles.
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { AlertTriangle, ArrowLeftRight, Cpu, FileText, Mail, Pencil, Phone, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, Building2, Cpu, FileText, Mail, Pencil, Phone, Trash2 } from "lucide-react";
 import { markFound, removeDocument } from "@/lib/actions/animals";
-import { getAnimal } from "@/lib/data/queries";
+import { getAnimal, listActiveClinics } from "@/lib/data/queries";
 import { homeFor, requireUser } from "@/lib/session";
 import { OWNERSHIP_EVENT, SEX_LABEL } from "@/lib/labels";
 import { fileHref, formatAge, formatChip, formatDate } from "@/lib/utils";
 import { Alert, Avatar, Badge, Button, ButtonLink, Card, CardHeader, InfoItem, PageHeader, StatusBadge } from "@/components/ui";
 import { Modal } from "@/components/modal";
-import { DeclareDeathForm, DeclareLostForm, TransferForm } from "@/components/app/animal-actions";
+import { ClinicTransferForm, DeclareDeathForm, DeclareLostForm, TransferForm } from "@/components/app/animal-actions";
 import { DocumentsUploader } from "@/components/app/documents-uploader";
 
 export const metadata = { title: "Fiche animal" };
@@ -26,6 +26,10 @@ export default async function AnimalPage({ params }: PageProps<"/animaux/[id]">)
   const isVet = user.role === "vet";
   const vetName = animal.implantedBy ? `Dr ${animal.implantedBy.name}` : animal.implantedByName;
   const pendingTransfer = animal.transfers[0];
+  const pendingClinicTransfer = animal.clinicTransfers[0];
+  const canChangeClinic =
+    user.role === "admin" || isOwner || animal.isClinicVet || (animal.clinicId === null && animal.canEdit);
+  const clinics = canChangeClinic && !pendingClinicTransfer ? await listActiveClinics() : [];
   const subtitle = [animal.species, animal.breed, SEX_LABEL[animal.sex], age].filter(Boolean).join(" · ");
 
   return (
@@ -80,6 +84,11 @@ export default async function AnimalPage({ params }: PageProps<"/animaux/[id]">)
           Transfert en attente vers <strong>{pendingTransfer.toName}</strong> — expire le {formatDate(pendingTransfer.expiresAt)}.
         </Alert>
       )}
+      {pendingClinicTransfer && (
+        <Alert tone="amber" className="mb-6">
+          Changement de clinique en attente vers <strong>{pendingClinicTransfer.toClinic.name}</strong> ({pendingClinicTransfer.toClinic.city}) — expire le {formatDate(pendingClinicTransfer.expiresAt)}.
+        </Alert>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
@@ -94,6 +103,7 @@ export default async function AnimalPage({ params }: PageProps<"/animaux/[id]">)
               <InfoItem label="Statut" value={<StatusBadge status={animal.status} />} />
               <InfoItem label="Enregistré le" value={formatDate(animal.createdAt)} />
               <InfoItem label="Vétérinaire poseur" value={vetName} />
+              <InfoItem label="Clinique responsable" value={animal.clinic ? `${animal.clinic.name}, ${animal.clinic.city}` : "Aucune"} />
               {animal.deceasedAt && <InfoItem label="Date du décès" value={formatDate(animal.deceasedAt)} />}
             </dl>
           </Card>
@@ -153,7 +163,7 @@ export default async function AnimalPage({ params }: PageProps<"/animaux/[id]">)
               Posée le {formatDate(animal.chipImplantedAt)}
               {animal.chipLocation && ` · ${animal.chipLocation}`}
             </p>
-            {vetName && <p className="text-xs text-white/70">Vétérinaire : {vetName}{animal.implantedBy?.vetProfile ? ` — ${animal.implantedBy.vetProfile.clinicName}` : ""}</p>}
+            {vetName && <p className="text-xs text-white/70">Vétérinaire : {vetName}{animal.implantedBy?.vetProfile ? ` — ${animal.implantedBy.vetProfile.clinic.name}` : ""}</p>}
             <Badge tone="amber" className="mt-3 bg-accent-500 text-white ring-0">ISO 11784</Badge>
           </div>
 
@@ -182,6 +192,33 @@ export default async function AnimalPage({ params }: PageProps<"/animaux/[id]">)
               <p className="mt-3 text-[11px] leading-relaxed text-muted">
                 Visible uniquement par le propriétaire et les vétérinaires vérifiés. Chaque consultation est enregistrée dans le journal d&apos;accès.
               </p>
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader title="Clinique responsable" />
+            <div className="p-5">
+              {animal.clinic ? (
+                <div className="flex items-center gap-3">
+                  <span className="flex size-9 items-center justify-center rounded-full bg-accent-500/10 text-accent-600"><Building2 className="size-4" /></span>
+                  <div>
+                    <p className="text-sm font-semibold text-ink">{animal.clinic.name}</p>
+                    <p className="text-xs text-muted">{animal.clinic.city}{animal.clinic.phone && ` · ${animal.clinic.phone}`}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted">Aucune clinique ne suit actuellement cet animal.</p>
+              )}
+              {canChangeClinic && !pendingClinicTransfer && animal.status !== "deceased" && (
+                <Modal
+                  trigger={<><Building2 className="size-4" /> {animal.clinic ? "Changer de clinique" : "Choisir une clinique"}</>}
+                  title="Clinique responsable"
+                  description="La clinique choisie suivra l'animal et pourra mettre à jour sa fiche."
+                  className="mt-4 w-full"
+                >
+                  <ClinicTransferForm animalId={animal.id} currentClinicId={animal.clinicId} clinics={clinics} />
+                </Modal>
+              )}
             </div>
           </Card>
 

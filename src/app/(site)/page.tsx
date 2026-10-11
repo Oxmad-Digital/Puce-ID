@@ -164,7 +164,7 @@ async function SearchResult({ searchParams }: Pick<PageProps<"/">, "searchParams
         </div>
         <p className="mt-4 text-center text-[11px] leading-relaxed text-muted">
           Les coordonnées du propriétaire ne sont jamais affichées publiquement. Votre message lui
-          est transmis par PawSafe.
+          est transmis par Puce ID.
         </p>
       </Card>
     </ResultWrapper>

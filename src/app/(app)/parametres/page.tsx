@@ -1,9 +1,7 @@
-import { eq } from "drizzle-orm";
-import { db, schema } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { Alert, Badge, Card, CardHeader, PageHeader } from "@/components/ui";
+import { Alert, Badge, ButtonLink, Card, CardHeader, InfoItem, PageHeader } from "@/components/ui";
 import { LangToggle } from "@/components/layout/lang-toggle";
-import { ClinicForm, PasswordForm, ProfileForm } from "@/components/forms/settings-forms";
+import { PasswordForm, ProfileForm } from "@/components/forms/settings-forms";
 
 export const metadata = { title: "Paramètres" };
 
@@ -15,10 +13,7 @@ const VET_STATUS = {
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const clinic =
-    user.role === "vet"
-      ? await db.query.vetProfile.findFirst({ where: eq(schema.vetProfile.userId, user.id) })
-      : null;
+  const vet = user.vet;
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -29,19 +24,26 @@ export default async function SettingsPage() {
         <div className="p-5"><ProfileForm name={user.name} email={user.email} phone={user.phone} city={user.city} /></div>
       </Card>
 
-      {clinic && (
+      {vet && (
         <Card>
           <CardHeader
-            title="Clinique"
-            action={<Badge tone={VET_STATUS[clinic.status].tone}>{VET_STATUS[clinic.status].label}</Badge>}
+            title="Exercice professionnel"
+            action={<Badge tone={VET_STATUS[vet.status].tone}>{VET_STATUS[vet.status].label}</Badge>}
           />
           <div className="p-5">
-            {clinic.status === "pending" && (
+            {vet.status === "pending" && (
               <Alert tone="amber" className="mb-4">
                 Notre équipe vérifie votre numéro d&apos;ordre auprès de l&apos;Ordre des vétérinaires. Vous serez prévenu par e-mail.
               </Alert>
             )}
-            <ClinicForm {...clinic} />
+            <dl className="grid gap-5 sm:grid-cols-3">
+              <InfoItem label="N° d'ordre" value={<span className="font-mono">{vet.orderNumber}</span>} />
+              <InfoItem label="Clinique" value={`${vet.clinicName}, ${vet.city}`} />
+              <InfoItem label="Rôle" value={vet.clinicRole === "manager" ? "Responsable" : "Membre"} />
+            </dl>
+            <ButtonLink href="/veterinaire/clinique" variant="secondary" size="sm" className="mt-5">
+              {vet.clinicRole === "manager" ? "Gérer la clinique et l'équipe" : "Voir la clinique"}
+            </ButtonLink>
           </div>
         </Card>
       )}

@@ -34,7 +34,7 @@ const FAQ: { section: string; items: [string, string][] }[] = [
 export default function FaqPage() {
   return (
     <>
-      <PageHero eyebrow="Ressources" title="Questions fréquentes" description="Tout ce qu'il faut savoir sur l'identification et le registre PawSafe." />
+      <PageHero eyebrow="Ressources" title="Questions fréquentes" description="Tout ce qu'il faut savoir sur l'identification et le registre Puce ID." />
       <div className="mx-auto max-w-3xl space-y-10 px-4 py-12 sm:px-6">
         {FAQ.map((block) => (
           <section key={block.section}>

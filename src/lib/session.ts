@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
-import type { UserRole } from "@/lib/db/schema";
+import type { ClinicRole, UserRole } from "@/lib/db/schema";
 
 export type CurrentUser = {
   id: string;
@@ -15,8 +15,11 @@ export type CurrentUser = {
   role: UserRole;
   phone: string | null;
   city: string | null;
+  mustChangePassword: boolean;
   vet: {
+    clinicId: string;
     clinicName: string;
+    clinicRole: ClinicRole;
     orderNumber: string;
     city: string;
     status: "pending" | "verified" | "rejected";
@@ -30,7 +33,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const row = await db.query.user.findFirst({
     where: eq(schema.user.id, session.user.id),
-    with: { vetProfile: true },
+    with: { vetProfile: { with: { clinic: true } } },
   });
   if (!row) return null;
 
@@ -42,20 +45,30 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     role: row.role,
     phone: row.phone,
     city: row.city,
+    mustChangePassword: row.mustChangePassword,
     vet: row.vetProfile
       ? {
-          clinicName: row.vetProfile.clinicName,
+          clinicId: row.vetProfile.clinicId,
+          clinicName: row.vetProfile.clinic.name,
+          clinicRole: row.vetProfile.clinicRole,
           orderNumber: row.vetProfile.orderNumber,
-          city: row.vetProfile.city,
+          city: row.vetProfile.clinic.city,
           status: row.vetProfile.status,
         }
       : null,
   };
 });
 
-export async function requireUser() {
+export const FIRST_LOGIN_PATH = "/nouveau-mot-de-passe";
+
+/**
+ * Utilisateur connecté, sinon redirection vers /connexion.
+ * Un compte invité doit d'abord remplacer son mot de passe provisoire.
+ */
+export async function requireUser(options: { allowTemporaryPassword?: boolean } = {}) {
   const user = await getCurrentUser();
   if (!user) redirect("/connexion");
+  if (user.mustChangePassword && !options.allowTemporaryPassword) redirect(FIRST_LOGIN_PATH);
   return user;
 }
 
@@ -70,6 +83,11 @@ export async function requireVerifiedVet() {
   const user = await requireRole("vet", "admin");
   if (user.role === "vet" && user.vet?.status !== "verified") redirect("/veterinaire");
   return user;
+}
+
+/** Vétérinaire vérifié, responsable de sa clinique (ou administrateur). */
+export function isClinicManager(user: CurrentUser) {
+  return user.vet?.status === "verified" && user.vet.clinicRole === "manager";
 }
 
 export function homeFor(role: UserRole) {

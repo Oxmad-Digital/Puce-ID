@@ -13,7 +13,7 @@ export default function LoginPage({ searchParams }: PageProps<"/connexion">) {
   return (
     <>
       <h1 className="text-2xl font-bold text-ink">Connexion</h1>
-      <p className="mt-1 mb-6 text-sm text-muted">Accédez à votre espace PawSafe.</p>
+      <p className="mt-1 mb-6 text-sm text-muted">Accédez à votre espace Puce ID.</p>
       <Suspense fallback={<LoginForm />}>
         <Form searchParams={searchParams} />
       </Suspense>

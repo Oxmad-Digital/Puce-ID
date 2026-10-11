@@ -42,7 +42,7 @@ export function PublicHeader() {
         </nav>
         <div className="flex items-center gap-3">
           <LangToggle />
-          <div className="hidden sm:block">
+          <div>
             <Suspense
               fallback={
                 <ButtonLink href="/connexion" size="sm">
@@ -53,7 +53,7 @@ export function PublicHeader() {
               <AccountButton />
             </Suspense>
           </div>
-          <MobileMenu items={[...nav, { label: "Connexion", href: "/connexion" }]} />
+          <MobileMenu items={nav} />
         </div>
       </div>
     </header>

@@ -12,7 +12,7 @@ export default function ContactPage() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_2fr] lg:px-8">
         <div className="space-y-3">
           {[
-            { icon: Mail, label: "E-mail", value: "contact@pawsafe.mg", href: "mailto:contact@pawsafe.mg" },
+            { icon: Mail, label: "E-mail", value: "contact@puceid.mg", href: "mailto:contact@puceid.mg" },
             { icon: Phone, label: "Téléphone", value: "+261 34 00 000 00", href: "tel:+261340000000" },
             { icon: MapPin, label: "Adresse", value: "Antananarivo, Madagascar" },
           ].map((c) => (

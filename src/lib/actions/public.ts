@@ -34,7 +34,7 @@ export async function contactOwner(chip: string, _prev: ActionState, form: FormD
     await sendMail({
       to: found.ownerEmail,
       subject: `Quelqu'un a des nouvelles de ${found.name}`,
-      text: `Bonjour ${found.ownerName},\n\n${parsed.data.senderName ?? "Une personne"} vous a laissé un message via PawSafe :\n\n« ${parsed.data.message} »\n\nPour lui répondre : ${parsed.data.senderContact}`,
+      text: `Bonjour ${found.ownerName},\n\n${parsed.data.senderName ?? "Une personne"} vous a laissé un message via Puce ID :\n\n« ${parsed.data.message} »\n\nPour lui répondre : ${parsed.data.senderContact}`,
     });
   }
   return { ok: true, message: "Votre message a été transmis au propriétaire. Merci pour votre aide !" };
@@ -160,7 +160,7 @@ export async function sendContactForm(_prev: ActionState, form: FormData): Promi
   });
   if (!parsed.success) return { fieldErrors: fieldErrorsFrom(parsed.error.issues) };
   await sendMail({
-    to: process.env.CONTACT_EMAIL ?? "contact@pawsafe.mg",
+    to: process.env.CONTACT_EMAIL ?? "contact@puceid.mg",
     subject: `[Contact] ${parsed.data.subject}`,
     text: `${parsed.data.name} <${parsed.data.email}>\n\n${parsed.data.message}\n\nTéléphone : ${optional(form, "phone") ?? "—"}`,
   });

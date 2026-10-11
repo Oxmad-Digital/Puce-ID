@@ -7,12 +7,15 @@ export type ActionState = {
 
 export const initialState: ActionState = {};
 
-/** Convertit les erreurs Zod en { champ: message }. */
-export function fieldErrorsFrom(issues: { path: PropertyKey[]; message: string }[]) {
+/** Convertit les erreurs Zod en { champ: message } (`rename` : clé du schéma → nom du champ HTML). */
+export function fieldErrorsFrom(
+  issues: { path: PropertyKey[]; message: string }[],
+  rename: Record<string, string> = {},
+) {
   const out: Record<string, string> = {};
   for (const issue of issues) {
     const key = String(issue.path[0] ?? "form");
-    out[key] ??= issue.message;
+    out[rename[key] ?? key] ??= issue.message;
   }
   return out;
 }

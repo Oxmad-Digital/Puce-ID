@@ -17,6 +17,7 @@ import {
 
 export const userRole = pgEnum("user_role", ["owner", "vet", "admin"]);
 export const vetStatus = pgEnum("vet_status", ["pending", "verified", "rejected"]);
+export const clinicRole = pgEnum("clinic_role", ["manager", "member"]);
 export const animalStatus = pgEnum("animal_status", ["alive", "lost", "found", "deceased"]);
 export const animalSex = pgEnum("animal_sex", ["male", "female", "unknown"]);
 export const transferStatus = pgEnum("transfer_status", [
@@ -43,6 +44,8 @@ export const accessAction = pgEnum("access_action", [
   "death_declared",
   "found_declared",
   "transfer_initiated",
+  "clinic_transfer_initiated",
+  "invitation_sent",
   "csv_import",
 ]);
 
@@ -60,6 +63,8 @@ export const user = pgTable("user", {
   phone: text("phone"),
   city: text("city"),
   locale: text("locale").notNull().default("fr"),
+  /** Compte créé par invitation : le mot de passe provisoire doit être changé à la première connexion. */
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -108,21 +113,37 @@ export const verification = pgTable("verification", {
 /*                                  Domaine                                   */
 /* -------------------------------------------------------------------------- */
 
-/** Profil professionnel d'un vétérinaire (1-1 avec user.role = "vet"). */
-export const vetProfile = pgTable("vet_profile", {
-  userId: text("user_id")
-    .primaryKey()
-    .references(() => user.id, { onDelete: "cascade" }),
-  clinicName: text("clinic_name").notNull(),
-  orderNumber: text("order_number").notNull(),
+/** Clinique vétérinaire : regroupe un ou plusieurs vétérinaires et suit ses patients. */
+export const clinic = pgTable("clinic", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
   city: text("city").notNull(),
   address: text("address"),
   phone: text("phone"),
-  status: vetStatus("status").notNull().default("pending"),
-  verifiedAt: timestamp("verified_at"),
+  email: text("email"),
   listedPublicly: boolean("listed_publicly").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+/** Profil professionnel d'un vétérinaire (1-1 avec user.role = "vet"), rattaché à une clinique. */
+export const vetProfile = pgTable(
+  "vet_profile",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    clinicId: uuid("clinic_id")
+      .notNull()
+      .references(() => clinic.id, { onDelete: "restrict" }),
+    /** Le responsable gère les informations de la clinique et invite ses confrères. */
+    clinicRole: clinicRole("clinic_role").notNull().default("member"),
+    orderNumber: text("order_number").notNull(),
+    status: vetStatus("status").notNull().default("pending"),
+    verifiedAt: timestamp("verified_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("vet_clinic_idx").on(t.clinicId)],
+);
 
 export const animal = pgTable(
   "animal",
@@ -159,6 +180,8 @@ export const animal = pgTable(
     registeredById: text("registered_by_id").references(() => user.id, {
       onDelete: "set null",
     }),
+    /** Clinique responsable du suivi de l'animal. */
+    clinicId: uuid("clinic_id").references(() => clinic.id, { onDelete: "set null" }),
     deceasedAt: date("deceased_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -167,6 +190,7 @@ export const animal = pgTable(
     index("animal_owner_idx").on(t.ownerId),
     index("animal_vet_idx").on(t.implantedByVetId),
     index("animal_status_idx").on(t.status),
+    index("animal_clinic_idx").on(t.clinicId),
   ],
 );
 
@@ -207,6 +231,31 @@ export const transfer = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("transfer_animal_idx").on(t.animalId), index("transfer_to_idx").on(t.toUserId)],
+);
+
+/** Changement de clinique responsable : effectif après acceptation par la clinique d'accueil. */
+export const clinicTransfer = pgTable(
+  "clinic_transfer",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    animalId: uuid("animal_id")
+      .notNull()
+      .references(() => animal.id, { onDelete: "cascade" }),
+    fromClinicId: uuid("from_clinic_id").references(() => clinic.id, { onDelete: "set null" }),
+    toClinicId: uuid("to_clinic_id")
+      .notNull()
+      .references(() => clinic.id, { onDelete: "cascade" }),
+    initiatedById: text("initiated_by_id").references(() => user.id, { onDelete: "set null" }),
+    reason: text("reason"),
+    status: transferStatus("status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at").notNull(),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("clinic_transfer_animal_idx").on(t.animalId),
+    index("clinic_transfer_to_idx").on(t.toClinicId),
+  ],
 );
 
 /** Signalements : perdu, trouvé, doublon de puce, contestation d'enregistrement. */
@@ -283,8 +332,14 @@ export const userRelations = relations(user, ({ one, many }) => ({
   animals: many(animal, { relationName: "owner" }),
 }));
 
+export const clinicRelations = relations(clinic, ({ many }) => ({
+  members: many(vetProfile),
+  animals: many(animal),
+}));
+
 export const vetProfileRelations = relations(vetProfile, ({ one }) => ({
   user: one(user, { fields: [vetProfile.userId], references: [user.id] }),
+  clinic: one(clinic, { fields: [vetProfile.clinicId], references: [clinic.id] }),
 }));
 
 export const animalRelations = relations(animal, ({ one, many }) => ({
@@ -294,8 +349,10 @@ export const animalRelations = relations(animal, ({ one, many }) => ({
     references: [user.id],
     relationName: "implantedBy",
   }),
+  clinic: one(clinic, { fields: [animal.clinicId], references: [clinic.id] }),
   history: many(ownershipHistory),
   transfers: many(transfer),
+  clinicTransfers: many(clinicTransfer),
   reports: many(report),
   documents: many(document),
 }));
@@ -306,6 +363,20 @@ export const ownershipHistoryRelations = relations(ownershipHistory, ({ one }) =
 
 export const transferRelations = relations(transfer, ({ one }) => ({
   animal: one(animal, { fields: [transfer.animalId], references: [animal.id] }),
+}));
+
+export const clinicTransferRelations = relations(clinicTransfer, ({ one }) => ({
+  animal: one(animal, { fields: [clinicTransfer.animalId], references: [animal.id] }),
+  fromClinic: one(clinic, {
+    fields: [clinicTransfer.fromClinicId],
+    references: [clinic.id],
+    relationName: "fromClinic",
+  }),
+  toClinic: one(clinic, {
+    fields: [clinicTransfer.toClinicId],
+    references: [clinic.id],
+    relationName: "toClinic",
+  }),
 }));
 
 export const reportRelations = relations(report, ({ one }) => ({
@@ -324,6 +395,7 @@ export const accessLogRelations = relations(accessLog, ({ one }) => ({
 export type Animal = typeof animal.$inferSelect;
 export type AnimalStatus = (typeof animalStatus.enumValues)[number];
 export type UserRole = (typeof userRole.enumValues)[number];
+export type ClinicRole = (typeof clinicRole.enumValues)[number];
 export type ReportType = (typeof reportType.enumValues)[number];
 export type TransferStatus = (typeof transferStatus.enumValues)[number];
 export type AccessAction = (typeof accessAction.enumValues)[number];

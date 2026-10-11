@@ -26,5 +26,6 @@ export const config = {
     "/parametres",
     "/veterinaire/:path*",
     "/admin/:path*",
+    "/nouveau-mot-de-passe",
   ],
 };

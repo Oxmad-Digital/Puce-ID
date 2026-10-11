@@ -15,7 +15,7 @@ export default async function AdminPage() {
 
   return (
     <>
-      <PageHeader title="Vue d'ensemble" description="Administration du registre PawSafe" />
+      <PageHeader title="Vue d'ensemble" description="Administration du registre Puce ID" />
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Animaux enregistrés" value={data.animals} hintTone="muted" hint="Total registre" />
         <StatCard label="Animaux disparus" value={data.lost} hint="Alertes actives" hintTone={data.lost ? "red" : "muted"} />

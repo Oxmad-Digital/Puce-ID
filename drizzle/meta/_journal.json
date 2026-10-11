@@ -15,6 +15,20 @@
       "when": 1791744850325,
       "tag": "0001_init",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791746547618,
+      "tag": "0002_cliniques_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791746548358,
+      "tag": "0003_cliniques_nettoyage",
+      "breakpoints": true
     }
   ]
 }

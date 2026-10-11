@@ -34,7 +34,7 @@ export function Logo({
         P
       </span>
       <span className={cn("text-[15px] font-bold tracking-tight", inverted ? "text-white" : "text-ink")}>
-        PawSafe
+        Puce ID
       </span>
       <Flag />
     </Link>

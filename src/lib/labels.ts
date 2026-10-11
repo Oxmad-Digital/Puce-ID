@@ -42,6 +42,8 @@ export const ACCESS_ACTION = {
   death_declared: "Décès déclaré",
   found_declared: "Animal déclaré trouvé",
   transfer_initiated: "Transfert initié",
+  clinic_transfer_initiated: "Changement de clinique",
+  invitation_sent: "Invitation envoyée",
   csv_import: "Import CSV",
 } as const;
 

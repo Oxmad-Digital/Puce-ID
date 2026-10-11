@@ -16,7 +16,7 @@ const google =
     : undefined;
 
 export const auth = betterAuth({
-  appName: "PawSafe",
+  appName: "Puce ID",
   baseURL: process.env.BETTER_AUTH_URL,
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -30,7 +30,7 @@ export const auth = betterAuth({
     async sendResetPassword({ user, url }) {
       await sendMail({
         to: user.email,
-        subject: "Réinitialisation de votre mot de passe PawSafe",
+        subject: "Réinitialisation de votre mot de passe Puce ID",
         text: `Bonjour ${user.name},\n\nPour choisir un nouveau mot de passe, ouvrez ce lien : ${url}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message.`,
       });
     },

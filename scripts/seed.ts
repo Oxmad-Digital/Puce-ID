@@ -1,6 +1,6 @@
 /**
  * Données de démonstration reprises des maquettes (Kiki, Rex, Mimi, Bella, Coco…).
- * Usage : npm run db:seed  — le mot de passe de tous les comptes est « pawsafe2026 ».
+ * Usage : npm run db:seed  — le mot de passe de tous les comptes est « puceid2026 ».
  */
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
@@ -9,25 +9,32 @@ import * as schema from "../src/lib/db/schema";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle({ client: pool, schema });
-const PASSWORD = "pawsafe2026";
+const PASSWORD = "puceid2026";
 
 type SeedUser = { id: string; name: string; email: string; role: "owner" | "vet" | "admin"; phone: string; city: string };
 
 const users: SeedUser[] = [
-  { id: "usr_admin", name: "Admin PawSafe", email: "admin@pawsafe.mg", role: "admin", phone: "+261 34 00 000 00", city: "Antananarivo" },
-  { id: "usr_rakoto", name: "Hery Rakoto", email: "dr.rakoto@pawsafe.mg", role: "vet", phone: "+261 34 11 222 33", city: "Antananarivo" },
-  { id: "usr_rasolo", name: "Fara Rasolo", email: "dr.rasolo@pawsafe.mg", role: "vet", phone: "+261 32 44 555 66", city: "Mahajanga" },
-  { id: "usr_randria", name: "Lova Randrianarisoa", email: "dr.lova@pawsafe.mg", role: "vet", phone: "+261 33 77 888 99", city: "Toamasina" },
-  { id: "usr_pending", name: "Mamy Razafy", email: "dr.razafy@pawsafe.mg", role: "vet", phone: "+261 34 98 765 43", city: "Fianarantsoa" },
+  { id: "usr_admin", name: "Admin Puce ID", email: "admin@puceid.mg", role: "admin", phone: "+261 34 00 000 00", city: "Antananarivo" },
+  { id: "usr_rakoto", name: "Hery Rakoto", email: "dr.rakoto@puceid.mg", role: "vet", phone: "+261 34 11 222 33", city: "Antananarivo" },
+  { id: "usr_rasolo", name: "Fara Rasolo", email: "dr.rasolo@puceid.mg", role: "vet", phone: "+261 32 44 555 66", city: "Mahajanga" },
+  { id: "usr_randria", name: "Lova Randrianarisoa", email: "dr.lova@puceid.mg", role: "vet", phone: "+261 33 77 888 99", city: "Toamasina" },
+  { id: "usr_pending", name: "Mamy Razafy", email: "dr.razafy@puceid.mg", role: "vet", phone: "+261 34 98 765 43", city: "Fianarantsoa" },
   { id: "usr_rasoa", name: "Rasoa Andrianina", email: "rasoa@example.mg", role: "owner", phone: "+261 34 12 345 67", city: "Antananarivo" },
   { id: "usr_hery", name: "Hery Randria", email: "hery@example.mg", role: "owner", phone: "+261 33 23 456 78", city: "Antsirabe" },
 ];
 
+const clinics = [
+  { id: "00000000-0000-4000-8000-000000000001", name: "Clinique Ambohijatovo", city: "Antananarivo", address: "Lot II J 45 Ambohijatovo", phone: "+261 34 11 222 33", email: "contact@ambohijatovo.mg" },
+  { id: "00000000-0000-4000-8000-000000000002", name: "Cabinet vétérinaire du Port", city: "Mahajanga", address: "Rue du Port", phone: "+261 32 44 555 66", email: null },
+  { id: "00000000-0000-4000-8000-000000000003", name: "Vétérinaire de l'Est", city: "Toamasina", address: "Bd Joffre", phone: "+261 33 77 888 99", email: null },
+  { id: "00000000-0000-4000-8000-000000000004", name: "Clinique des Hautes Terres", city: "Fianarantsoa", address: null, phone: "+261 34 98 765 43", email: null },
+];
+
 const vets = [
-  { userId: "usr_rakoto", clinicName: "Clinique Ambohijatovo", orderNumber: "1234", city: "Antananarivo", address: "Lot II J 45 Ambohijatovo", status: "verified" as const },
-  { userId: "usr_rasolo", clinicName: "Cabinet vétérinaire du Port", orderNumber: "2087", city: "Mahajanga", address: "Rue du Port", status: "verified" as const },
-  { userId: "usr_randria", clinicName: "Vétérinaire de l'Est", orderNumber: "1876", city: "Toamasina", address: "Bd Joffre", status: "verified" as const },
-  { userId: "usr_pending", clinicName: "Clinique des Hautes Terres", orderNumber: "2411", city: "Fianarantsoa", address: null, status: "pending" as const },
+  { userId: "usr_rakoto", clinicId: clinics[0].id, clinicRole: "manager" as const, orderNumber: "1234", status: "verified" as const },
+  { userId: "usr_rasolo", clinicId: clinics[1].id, clinicRole: "manager" as const, orderNumber: "2087", status: "verified" as const },
+  { userId: "usr_randria", clinicId: clinics[2].id, clinicRole: "manager" as const, orderNumber: "1876", status: "verified" as const },
+  { userId: "usr_pending", clinicId: clinics[3].id, clinicRole: "manager" as const, orderNumber: "2411", status: "pending" as const },
 ];
 
 const animals = [
@@ -51,8 +58,9 @@ async function main() {
   await db.insert(schema.account).values(
     users.map((u) => ({ id: `acc_${u.id}`, accountId: u.id, providerId: "credential", userId: u.id, password: hash })),
   );
+  await db.insert(schema.clinic).values(clinics);
   await db.insert(schema.vetProfile).values(
-    vets.map((v) => ({ ...v, phone: users.find((u) => u.id === v.userId)!.phone, verifiedAt: v.status === "verified" ? new Date() : null })),
+    vets.map((v) => ({ ...v, verifiedAt: v.status === "verified" ? new Date() : null })),
   );
 
   const inserted = await db
@@ -63,6 +71,7 @@ async function main() {
         chipLocation: "Cou, côté gauche",
         implantedByVetId: "usr_rakoto",
         registeredById: "usr_rakoto",
+        clinicId: clinics[0].id,
         ownerConfirmed: a.ownerId !== null,
         deceasedAt: a.status === "deceased" ? "2026-08-14" : null,
       })),

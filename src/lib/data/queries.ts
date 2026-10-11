@@ -1,12 +1,23 @@
 import "server-only";
-import { and, count, desc, eq, gte, ilike, inArray, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNotNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
-import type { AccessAction, AnimalStatus } from "@/lib/db/schema";
+import type { AccessAction } from "@/lib/db/schema";
+import type { AnimalFilters } from "@/lib/filters";
 import type { CurrentUser } from "@/lib/session";
 import { normalizeChip } from "@/lib/utils";
 
-const { animal, transfer, report, accessLog, ownershipHistory, vetProfile, user, contactMessage } =
-  schema;
+const {
+  animal,
+  transfer,
+  clinicTransfer,
+  report,
+  accessLog,
+  ownershipHistory,
+  vetProfile,
+  clinic,
+  user,
+  contactMessage,
+} = schema;
 
 /* -------------------------------------------------------------------------- */
 /*                               Public                                       */
@@ -36,35 +47,35 @@ export async function findPublicChip(raw: string) {
 }
 
 export async function listVerifiedVets(filters: { q?: string; city?: string }) {
-  const where: SQL[] = [eq(vetProfile.status, "verified"), eq(vetProfile.listedPublicly, true)];
-  if (filters.city) where.push(eq(vetProfile.city, filters.city));
+  const where: SQL[] = [eq(vetProfile.status, "verified"), eq(clinic.listedPublicly, true)];
+  if (filters.city) where.push(eq(clinic.city, filters.city));
   if (filters.q) {
-    where.push(
-      or(ilike(vetProfile.clinicName, `%${filters.q}%`), ilike(user.name, `%${filters.q}%`))!,
-    );
+    where.push(or(ilike(clinic.name, `%${filters.q}%`), ilike(user.name, `%${filters.q}%`))!);
   }
   return db
     .select({
       id: user.id,
       name: user.name,
-      email: user.email,
-      clinicName: vetProfile.clinicName,
-      city: vetProfile.city,
-      address: vetProfile.address,
-      phone: vetProfile.phone,
+      email: sql<string>`coalesce(${clinic.email}, ${user.email})`,
+      clinicName: clinic.name,
+      city: clinic.city,
+      address: clinic.address,
+      phone: sql<string | null>`coalesce(${clinic.phone}, ${user.phone})`,
     })
     .from(vetProfile)
     .innerJoin(user, eq(user.id, vetProfile.userId))
+    .innerJoin(clinic, eq(clinic.id, vetProfile.clinicId))
     .where(and(...where))
-    .orderBy(vetProfile.city, vetProfile.clinicName);
+    .orderBy(clinic.city, clinic.name, user.name);
 }
 
 export async function listVetCities() {
   const rows = await db
-    .selectDistinct({ city: vetProfile.city })
-    .from(vetProfile)
+    .selectDistinct({ city: clinic.city })
+    .from(clinic)
+    .innerJoin(vetProfile, eq(vetProfile.clinicId, clinic.id))
     .where(eq(vetProfile.status, "verified"))
-    .orderBy(vetProfile.city);
+    .orderBy(clinic.city);
   return rows.map((r) => r.city);
 }
 
@@ -87,11 +98,16 @@ export async function listPublicLostFound(type?: "lost" | "found") {
 /*                               Animaux                                      */
 /* -------------------------------------------------------------------------- */
 
-export type AnimalFilters = { q?: string; status?: AnimalStatus };
-
 function animalFilters(filters: AnimalFilters): SQL[] {
   const where: SQL[] = [];
   if (filters.status) where.push(eq(animal.status, filters.status));
+  if (filters.species) where.push(eq(animal.species, filters.species));
+  if (filters.sex) where.push(eq(animal.sex, filters.sex));
+  if (filters.city) where.push(ilike(animal.ownerCity, filters.city));
+  if (filters.clinicId === "none") where.push(sql`${animal.clinicId} is null`);
+  else if (filters.clinicId) where.push(eq(animal.clinicId, filters.clinicId));
+  if (filters.from) where.push(gte(animal.createdAt, new Date(`${filters.from}T00:00:00`)));
+  if (filters.to) where.push(lte(animal.createdAt, new Date(`${filters.to}T23:59:59.999`)));
   if (filters.q) {
     const q = filters.q.trim();
     const digits = normalizeChip(q);
@@ -99,6 +115,8 @@ function animalFilters(filters: AnimalFilters): SQL[] {
       or(
         ilike(animal.name, `%${q}%`),
         ilike(animal.ownerName, `%${q}%`),
+        ilike(animal.ownerEmail, `%${q}%`),
+        ilike(animal.ownerPhone, `%${q}%`),
         digits.length >= 3 ? ilike(animal.chipNumber, `%${digits}%`) : undefined,
       )!,
     );
@@ -106,13 +124,41 @@ function animalFilters(filters: AnimalFilters): SQL[] {
   return where;
 }
 
-/** Périmètre d'animaux visible par l'utilisateur dans ses listes. */
+/**
+ * Périmètre d'animaux visible par l'utilisateur dans ses listes.
+ * Un vétérinaire vérifié voit les patients de toute sa clinique.
+ */
 function scopeFor(u: CurrentUser): SQL | undefined {
   if (u.role === "admin") return undefined;
   if (u.role === "vet") {
-    return or(eq(animal.implantedByVetId, u.id), eq(animal.registeredById, u.id));
+    return or(
+      eq(animal.implantedByVetId, u.id),
+      eq(animal.registeredById, u.id),
+      u.vet?.status === "verified" ? eq(animal.clinicId, u.vet.clinicId) : undefined,
+    );
   }
   return eq(animal.ownerId, u.id);
+}
+
+/** Valeurs proposées dans les filtres avancés (limitées au périmètre de l'utilisateur). */
+export async function animalFilterOptions(u: CurrentUser) {
+  const scope = scopeFor(u);
+  const [species, cities, clinics] = await Promise.all([
+    db.selectDistinct({ v: animal.species }).from(animal).where(scope).orderBy(animal.species),
+    db
+      .selectDistinct({ v: animal.ownerCity })
+      .from(animal)
+      .where(and(scope, isNotNull(animal.ownerCity)))
+      .orderBy(animal.ownerCity),
+    u.role === "admin"
+      ? db.select({ id: clinic.id, name: clinic.name, city: clinic.city }).from(clinic).orderBy(clinic.name)
+      : Promise.resolve([]),
+  ]);
+  return {
+    species: species.map((r) => r.v),
+    cities: cities.map((r) => r.v!).filter(Boolean),
+    clinics,
+  };
 }
 
 export async function listAnimals(u: CurrentUser, filters: AnimalFilters = {}, limit = 100) {
@@ -136,8 +182,16 @@ export async function getAnimal(u: CurrentUser, id: string) {
     with: {
       history: { orderBy: desc(ownershipHistory.occurredAt) },
       documents: { orderBy: desc(schema.document.createdAt) },
-      implantedBy: { columns: { name: true }, with: { vetProfile: { columns: { clinicName: true } } } },
+      implantedBy: {
+        columns: { name: true },
+        with: { vetProfile: { columns: {}, with: { clinic: { columns: { name: true } } } } },
+      },
+      clinic: { columns: { id: true, name: true, city: true, phone: true } },
       transfers: { where: eq(transfer.status, "pending") },
+      clinicTransfers: {
+        where: eq(clinicTransfer.status, "pending"),
+        with: { toClinic: { columns: { name: true, city: true } } },
+      },
     },
   });
   if (!row) return null;
@@ -149,7 +203,17 @@ export async function getAnimal(u: CurrentUser, id: string) {
   if (isVet && !isOwner) {
     await logAccess(u.id, row.id, "contact_viewed", `Fiche ${row.name}`);
   }
-  return { ...row, canEdit: isOwner || u.role === "admin" || row.implantedByVetId === u.id || row.registeredById === u.id };
+  const isClinicVet = isVet && row.clinicId !== null && row.clinicId === u.vet?.clinicId;
+  return {
+    ...row,
+    isClinicVet,
+    canEdit:
+      isOwner ||
+      isClinicVet ||
+      u.role === "admin" ||
+      row.implantedByVetId === u.id ||
+      row.registeredById === u.id,
+  };
 }
 
 export async function ownerStats(userId: string) {
@@ -185,11 +249,12 @@ export async function ownerStats(userId: string) {
   };
 }
 
-export async function vetStats(vetId: string, now: Date) {
+export async function vetStats(u: CurrentUser, now: Date) {
+  const vetId = u.id;
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const weekAgo = new Date(now.getTime() - 7 * 86400_000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400_000);
-  const scope = or(eq(animal.implantedByVetId, vetId), eq(animal.registeredById, vetId));
+  const scope = scopeFor(u);
 
   const [patients] = await db
     .select({
@@ -204,6 +269,13 @@ export async function vetStats(vetId: string, now: Date) {
     .select({ total: count() })
     .from(transfer)
     .where(and(eq(transfer.status, "pending"), eq(transfer.initiatedById, vetId)));
+
+  const [clinicTransfers] = u.vet
+    ? await db
+        .select({ total: count() })
+        .from(clinicTransfer)
+        .where(and(eq(clinicTransfer.status, "pending"), eq(clinicTransfer.toClinicId, u.vet.clinicId)))
+    : [{ total: 0 }];
 
   const [views] = await db
     .select({ total: count() })
@@ -220,7 +292,7 @@ export async function vetStats(vetId: string, now: Date) {
     patients: patients.total,
     patientsThisWeek: patients.thisWeek,
     chippedThisMonth: patients.chippedThisMonth,
-    pendingTransfers: transfers.total,
+    pendingTransfers: transfers.total + clinicTransfers.total,
     contactViews: views.total,
   };
 }
@@ -243,6 +315,38 @@ export async function listTransfers(u: CurrentUser) {
     where,
     with: { animal: { columns: { id: true, name: true, species: true, chipNumber: true } } },
     orderBy: desc(transfer.createdAt),
+    limit: 100,
+  });
+}
+
+/** Changements de clinique visibles : ceux de ma clinique, de mes animaux ou que j'ai initiés. */
+export async function listClinicTransfers(u: CurrentUser) {
+  let where: SQL | undefined;
+  if (u.role === "vet" && u.vet) {
+    where = or(
+      eq(clinicTransfer.toClinicId, u.vet.clinicId),
+      eq(clinicTransfer.fromClinicId, u.vet.clinicId),
+      eq(clinicTransfer.initiatedById, u.id),
+    );
+  } else if (u.role !== "admin") {
+    where = or(
+      eq(clinicTransfer.initiatedById, u.id),
+      exists(
+        db
+          .select({ id: animal.id })
+          .from(animal)
+          .where(and(eq(animal.id, clinicTransfer.animalId), eq(animal.ownerId, u.id))),
+      ),
+    );
+  }
+  return db.query.clinicTransfer.findMany({
+    where,
+    with: {
+      animal: { columns: { id: true, name: true, species: true, chipNumber: true, ownerId: true } },
+      fromClinic: { columns: { id: true, name: true, city: true } },
+      toClinic: { columns: { id: true, name: true, city: true } },
+    },
+    orderBy: desc(clinicTransfer.createdAt),
     limit: 100,
   });
 }
@@ -272,20 +376,28 @@ export async function listReportsFor(u: CurrentUser) {
 }
 
 /** Éléments « À traiter » du tableau de bord vétérinaire. */
-export async function vetTodo(vetId: string) {
+export async function vetTodo(u: CurrentUser) {
   const transfers = await db.query.transfer.findMany({
-    where: and(eq(transfer.status, "pending"), eq(transfer.initiatedById, vetId)),
+    where: and(eq(transfer.status, "pending"), eq(transfer.initiatedById, u.id)),
     with: { animal: { columns: { name: true } } },
     orderBy: transfer.expiresAt,
     limit: 3,
   });
+  const clinicTransfers = u.vet
+    ? await db.query.clinicTransfer.findMany({
+        where: and(eq(clinicTransfer.status, "pending"), eq(clinicTransfer.toClinicId, u.vet.clinicId)),
+        with: { animal: { columns: { name: true } }, fromClinic: { columns: { name: true } } },
+        orderBy: clinicTransfer.expiresAt,
+        limit: 3,
+      })
+    : [];
   const reports = await db.query.report.findMany({
     where: and(eq(report.status, "open"), inArray(report.type, ["found", "duplicate"])),
     with: { animal: { columns: { id: true, name: true } } },
     orderBy: desc(report.createdAt),
     limit: 3,
   });
-  return { transfers, reports };
+  return { transfers, clinicTransfers, reports };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -349,13 +461,14 @@ export async function adminOverview() {
       userId: vetProfile.userId,
       name: user.name,
       email: user.email,
-      clinicName: vetProfile.clinicName,
+      clinicName: clinic.name,
       orderNumber: vetProfile.orderNumber,
-      city: vetProfile.city,
+      city: clinic.city,
       createdAt: vetProfile.createdAt,
     })
     .from(vetProfile)
     .innerJoin(user, eq(user.id, vetProfile.userId))
+    .innerJoin(clinic, eq(clinic.id, vetProfile.clinicId))
     .where(eq(vetProfile.status, "pending"))
     .orderBy(vetProfile.createdAt);
   const openDisputes = await db.query.report.findMany({
@@ -375,19 +488,53 @@ export async function findAnimalIdByChip(raw: string) {
   return row?.id ?? null;
 }
 
-export async function listAllVets() {
+/** Cliniques et leurs vétérinaires (administration). */
+export async function listClinicsWithMembers() {
+  const [clinics, animalCounts] = await Promise.all([
+    db.query.clinic.findMany({
+      with: {
+        members: {
+          with: { user: { columns: { id: true, name: true, email: true, mustChangePassword: true } } },
+          orderBy: [asc(vetProfile.clinicRole), asc(vetProfile.createdAt)],
+        },
+      },
+      orderBy: [asc(clinic.city), asc(clinic.name)],
+    }),
+    db
+      .select({ clinicId: animal.clinicId, total: count() })
+      .from(animal)
+      .where(isNotNull(animal.clinicId))
+      .groupBy(animal.clinicId),
+  ]);
+  const totals = new Map(animalCounts.map((r) => [r.clinicId, r.total]));
+  return clinics.map((c) => ({ ...c, animals: totals.get(c.id) ?? 0 }));
+}
+
+/** Fiche clinique avec ses membres (espace vétérinaire). */
+export async function getClinic(clinicId: string) {
+  return db.query.clinic.findFirst({
+    where: eq(clinic.id, clinicId),
+    with: {
+      members: {
+        with: { user: { columns: { id: true, name: true, email: true, phone: true, mustChangePassword: true } } },
+        orderBy: [asc(vetProfile.clinicRole), asc(vetProfile.createdAt)],
+      },
+    },
+  });
+}
+
+/** Cliniques pouvant accueillir un animal : au moins un vétérinaire vérifié. */
+export async function listActiveClinics() {
   return db
-    .select({
-      userId: vetProfile.userId,
-      name: user.name,
-      email: user.email,
-      clinicName: vetProfile.clinicName,
-      orderNumber: vetProfile.orderNumber,
-      city: vetProfile.city,
-      status: vetProfile.status,
-      createdAt: vetProfile.createdAt,
-    })
-    .from(vetProfile)
-    .innerJoin(user, eq(user.id, vetProfile.userId))
-    .orderBy(vetProfile.status, desc(vetProfile.createdAt));
+    .select({ id: clinic.id, name: clinic.name, city: clinic.city })
+    .from(clinic)
+    .where(
+      exists(
+        db
+          .select({ id: vetProfile.userId })
+          .from(vetProfile)
+          .where(and(eq(vetProfile.clinicId, clinic.id), eq(vetProfile.status, "verified"))),
+      ),
+    )
+    .orderBy(clinic.city, clinic.name);
 }

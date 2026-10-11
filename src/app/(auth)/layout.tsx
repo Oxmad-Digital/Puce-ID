@@ -25,7 +25,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         </div>
 
         <div className="flex flex-col gap-2 text-[11px] text-subtle sm:flex-row sm:justify-between">
-          <span>© 2026 PawSafe</span>
+          <span>© 2026 Puce ID</span>
           <div className="flex gap-4">
             <Link href="/mentions-legales" className="hover:text-brand-700">Mentions légales</Link>
             <Link href="/confidentialite" className="hover:text-brand-700">Confidentialité</Link>

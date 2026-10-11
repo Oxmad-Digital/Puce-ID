@@ -50,8 +50,8 @@ export function PublicFooter({ compact }: { compact?: boolean }) {
               <p className="text-xs font-semibold text-white">Contact</p>
               <ul className="mt-3 space-y-2 text-xs">
                 <li>
-                  <a href="mailto:contact@pawsafe.mg" className="hover:text-white">
-                    contact@pawsafe.mg
+                  <a href="mailto:contact@puceid.mg" className="hover:text-white">
+                    contact@puceid.mg
                   </a>
                 </li>
                 <li>+261 34 00 000 00</li>
@@ -72,7 +72,7 @@ export function PublicFooter({ compact }: { compact?: boolean }) {
           </div>
         )}
         <div className="flex flex-col gap-3 border-t border-white/10 py-5 text-[11px] sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 PawSafe. Tous droits réservés.</p>
+          <p>© 2026 Puce ID. Tous droits réservés.</p>
           <div className="flex gap-5">
             <Link href="/mentions-legales" className="hover:text-white">Mentions légales</Link>
             <Link href="/confidentialite" className="hover:text-white">Confidentialité</Link>

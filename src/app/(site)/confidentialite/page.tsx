@@ -20,7 +20,7 @@ export default function PrivacyPage() {
       <h2>Durée de conservation</h2>
       <p>Les fiches sont conservées pendant la vie de l&apos;animal puis 5 ans après la déclaration de décès. Les journaux d&apos;accès sont conservés 3 ans.</p>
       <h2>Vos droits</h2>
-      <p>Vous pouvez accéder à vos données, les rectifier ou demander leur suppression depuis vos paramètres ou en écrivant à contact@pawsafe.mg.</p>
+      <p>Vous pouvez accéder à vos données, les rectifier ou demander leur suppression depuis vos paramètres ou en écrivant à contact@puceid.mg.</p>
     </Prose>
   );
 }

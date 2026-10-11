@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { logAccess } from "@/lib/data/queries";
+import { claimRecords, findOrInviteOwner } from "@/lib/invitations";
+import { appUrl, sendMail } from "@/lib/mail";
 import { requireRole, requireUser } from "@/lib/session";
 import { isValidChip, normalizeChip } from "@/lib/utils";
 import type { ActionState } from "./state";
@@ -103,6 +105,7 @@ export async function importCsv(_prev: ImportResult, form: FormData): Promise<Im
       ownerCity: col(r, "proprietaire_ville") ?? null,
       implantedByVetId: user.id,
       registeredById: user.id,
+      clinicId: user.vet?.status === "verified" ? user.vet.clinicId : null,
     });
   });
 
@@ -132,12 +135,32 @@ export async function importCsv(_prev: ImportResult, form: FormData): Promise<Im
       );
     }
     await logAccess(user.id, null, "csv_import", `${fresh.length} animaux importés`);
+
+    // Propriétaires : rattachement aux comptes existants, sinon invitation avec mot de passe provisoire.
+    const owners = new Map<string, (typeof fresh)[number]>();
+    for (const a of fresh) if (a.ownerEmail && !owners.has(a.ownerEmail)) owners.set(a.ownerEmail, a);
+    const by = user.vet ? `${user.vet.clinicName} (Dr ${user.name})` : "l'équipe Puce ID";
+    let invitedCount = 0;
+    for (const [email, a] of owners) {
+      const { userId, invited } = await findOrInviteOwner({
+        name: a.ownerName,
+        email,
+        phone: a.ownerPhone,
+        city: a.ownerCity,
+        subject: "Votre animal est enregistré dans le registre Puce ID",
+        intro: `${by} a enregistré votre animal « ${a.name} » dans le registre national des animaux identifiés (puce ${a.chipNumber}). Un compte a été créé à votre nom pour consulter sa fiche et mettre à jour vos coordonnées.`,
+      });
+      if (invited) invitedCount++;
+      else await claimRecords(userId, email);
+    }
     revalidatePath("/veterinaire/patients");
     return {
       ok: true,
       imported: fresh.length,
       errors,
-      message: `${fresh.length} animal${fresh.length > 1 ? "aux importés" : " importé"}.`,
+      message:
+        `${fresh.length} animal${fresh.length > 1 ? "aux importés" : " importé"}.` +
+        (invitedCount ? ` ${invitedCount} propriétaire${invitedCount > 1 ? "s ont" : " a"} reçu une invitation par e-mail.` : ""),
     };
   }
   return { ok: false, imported: 0, errors, error: "Aucune ligne valide à importer." };
@@ -148,10 +171,21 @@ export async function importCsv(_prev: ImportResult, form: FormData): Promise<Im
 export async function reviewVet(userId: string, approve: boolean): Promise<void> {
   const admin = await requireUser();
   if (admin.role !== "admin") return;
-  await db
+  const [profile] = await db
     .update(schema.vetProfile)
     .set({ status: approve ? "verified" : "rejected", verifiedAt: approve ? new Date() : null })
-    .where(eq(schema.vetProfile.userId, userId));
+    .where(eq(schema.vetProfile.userId, userId))
+    .returning({ status: schema.vetProfile.status });
+  const vet = await db.query.user.findFirst({ where: eq(schema.user.id, userId), columns: { name: true, email: true } });
+  if (profile && vet) {
+    await sendMail({
+      to: vet.email,
+      subject: approve ? "Votre compte vétérinaire Puce ID est validé" : "Votre compte vétérinaire Puce ID",
+      text: approve
+        ? `Bonjour Dr ${vet.name},\n\nVotre numéro d'ordre a été vérifié : vous pouvez désormais enregistrer des puces et consulter les coordonnées des propriétaires.\n\n${appUrl("/connexion")}`
+        : `Bonjour Dr ${vet.name},\n\nVotre accès vétérinaire n'a pas été validé ou a été suspendu. Pour toute question, répondez à ce message ou écrivez à ${process.env.CONTACT_EMAIL ?? "contact@puceid.mg"}.`,
+    });
+  }
   revalidatePath("/admin");
   revalidatePath("/admin/veterinaires");
 }

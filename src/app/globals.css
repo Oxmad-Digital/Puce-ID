@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Palette PawSafe — reprise des maquettes Figma « Registre des animaux à puces » */
+/* Palette Puce ID — reprise des maquettes Figma « Registre des animaux à puces » */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 

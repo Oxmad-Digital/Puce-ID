@@ -1,7 +1,7 @@
 import { PawPrint, Plus } from "lucide-react";
-import { listAnimals } from "@/lib/data/queries";
+import { animalFilterOptions, listAnimals } from "@/lib/data/queries";
+import { hasFilters, parseAnimalFilters } from "@/lib/filters";
 import { requireUser } from "@/lib/session";
-import type { AnimalStatus } from "@/lib/db/schema";
 import { ButtonLink, Card, EmptyState, PageHeader } from "@/components/ui";
 import { AnimalTable } from "@/components/app/animal-table";
 import { AnimalFilters } from "@/components/app/animal-filters";
@@ -11,19 +11,21 @@ export const metadata = { title: "Mes animaux" };
 export default async function MyAnimalsPage({ searchParams }: PageProps<"/mes-animaux">) {
   const user = await requireUser();
   const sp = await searchParams;
-  const q = typeof sp.q === "string" ? sp.q : undefined;
-  const status = typeof sp.statut === "string" && sp.statut ? (sp.statut as AnimalStatus) : undefined;
-  const animals = await listAnimals(user, { q, status });
+  const filters = parseAnimalFilters(sp);
+  const [animals, options] = await Promise.all([
+    listAnimals(user, filters),
+    animalFilterOptions(user),
+  ]);
 
   return (
     <>
       <PageHeader
-        title="Mes animaux"
-        description={`${animals.length} animal${animals.length > 1 ? "aux" : ""} ${q || status ? "correspondant à votre recherche" : "enregistré" + (animals.length > 1 ? "s" : "")}`}
+        title={user.role === "admin" ? "Registre des animaux" : "Mes animaux"}
+        description={`${animals.length} animal${animals.length > 1 ? "aux" : ""} ${hasFilters(filters) ? "correspondant à votre recherche" : "enregistré" + (animals.length > 1 ? "s" : "")}`}
         actions={<ButtonLink href="/animaux/nouveau"><Plus className="size-4" /> Enregistrer un animal</ButtonLink>}
       />
       <Card>
-        <AnimalFilters q={q} status={status} />
+        <AnimalFilters filters={filters} options={options} basePath="/mes-animaux" />
         {animals.length ? (
           <AnimalTable animals={animals} ownerColumn={user.role !== "owner"} />
         ) : (

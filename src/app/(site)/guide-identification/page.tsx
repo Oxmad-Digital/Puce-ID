@@ -7,8 +7,8 @@ export const metadata = { title: "Guide de l'identification" };
 const steps = [
   { icon: Syringe, title: "La pose", text: "Le vétérinaire implante sous la peau, généralement côté gauche du cou, une puce de la taille d'un grain de riz. Le geste est rapide et ne nécessite pas d'anesthésie." },
   { icon: Cpu, title: "Le numéro unique", text: "Chaque puce porte un numéro ISO 11784/11785 de 15 chiffres. Les trois premiers identifient le pays ou le fabricant (450 pour Madagascar)." },
-  { icon: FileCheck2, title: "L'enregistrement", text: "Le vétérinaire associe ce numéro à l'animal et à son propriétaire dans le registre PawSafe. Le propriétaire confirme ensuite ses coordonnées." },
-  { icon: ScanLine, title: "La lecture", text: "En cas de perte, n'importe quel lecteur ISO permet de lire la puce. Le numéro saisi sur PawSafe permet de prévenir le propriétaire." },
+  { icon: FileCheck2, title: "L'enregistrement", text: "Le vétérinaire associe ce numéro à l'animal et à son propriétaire dans le registre Puce ID. Le propriétaire confirme ensuite ses coordonnées." },
+  { icon: ScanLine, title: "La lecture", text: "En cas de perte, n'importe quel lecteur ISO permet de lire la puce. Le numéro saisi sur Puce ID permet de prévenir le propriétaire." },
   { icon: ShieldCheck, title: "La protection des données", text: "Les coordonnées ne sont visibles que par les vétérinaires vérifiés. Chaque consultation est tracée dans un journal d'accès." },
   { icon: HeartPulse, title: "Le suivi", text: "Mettez à jour la fiche à chaque événement : déménagement, changement de numéro, cession ou décès de l'animal." },
 ];

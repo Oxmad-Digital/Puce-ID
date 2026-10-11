@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "PawSafe — Registre des animaux à puce", template: "%s · PawSafe" },
+  title: { default: "Puce ID — Registre des animaux à puce", template: "%s · Puce ID" },
   description:
     "Retrouvez le propriétaire d'un animal grâce à sa puce électronique. Registre national des animaux identifiés à Madagascar.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),

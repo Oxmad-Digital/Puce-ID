@@ -22,9 +22,9 @@ export default async function VetDashboard() {
   await connection();
   const now = new Date();
   const [stats, patients, todo, log] = await Promise.all([
-    vetStats(user.id, now),
+    vetStats(user, now),
     listAnimals(user, {}, 5),
-    vetTodo(user.id),
+    vetTodo(user),
     listAccessLog(user.id, 4),
   ]);
   const lastName = user.name.split(" ").at(-1);
@@ -81,7 +81,7 @@ export default async function VetDashboard() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Patients suivis" value={stats.patients} hint={`+${stats.patientsThisWeek} cette semaine`} />
         <StatCard label="Puces posées (mois)" value={stats.chippedThisMonth} hint="Depuis le 1er du mois" hintTone="muted" />
-        <StatCard label="Transferts à confirmer" value={stats.pendingTransfers} hint={stats.pendingTransfers ? `${stats.pendingTransfers} en attente` : "Aucun"} hintTone={stats.pendingTransfers ? "red" : "muted"} />
+        <StatCard label="Transferts en attente" value={stats.pendingTransfers} hint={stats.pendingTransfers ? `${stats.pendingTransfers} en attente` : "Aucun"} hintTone={stats.pendingTransfers ? "red" : "muted"} />
         <StatCard label="Coordonnées consultées" value={stats.contactViews} hint="30 derniers jours · journalisé" hintTone="muted" />
       </div>
 
@@ -121,7 +121,7 @@ export default async function VetDashboard() {
         <div className="space-y-6">
           <Card>
             <CardHeader title="À traiter" />
-            {todo.transfers.length + todo.reports.length === 0 ? (
+            {todo.transfers.length + todo.clinicTransfers.length + todo.reports.length === 0 ? (
               <p className="px-5 py-6 text-center text-xs text-muted">Rien à traiter pour le moment.</p>
             ) : (
               <ul className="divide-y divide-line">
@@ -131,6 +131,16 @@ export default async function VetDashboard() {
                       <Badge tone="amber">Transfert</Badge>
                       <p className="mt-1 text-xs font-semibold text-ink">{t.animal.name} · {t.fromName} → {t.toName}</p>
                       <p className="text-[11px] text-muted">À confirmer avant le {formatDate(t.expiresAt)}</p>
+                    </div>
+                    <ButtonLink href="/transferts" variant="secondary" size="sm">Voir</ButtonLink>
+                  </li>
+                ))}
+                {todo.clinicTransfers.map((t) => (
+                  <li key={t.id} className="flex items-center gap-3 px-5 py-3">
+                    <div className="min-w-0 flex-1">
+                      <Badge tone="brand">Nouveau patient</Badge>
+                      <p className="mt-1 text-xs font-semibold text-ink">{t.animal.name}{t.fromClinic && ` · depuis ${t.fromClinic.name}`}</p>
+                      <p className="text-[11px] text-muted">À accepter avant le {formatDate(t.expiresAt)}</p>
                     </div>
                     <ButtonLink href="/transferts" variant="secondary" size="sm">Voir</ButtonLink>
                   </li>
