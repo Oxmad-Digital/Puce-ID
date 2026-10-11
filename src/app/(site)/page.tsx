@@ -3,7 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { HeartHandshake, MapPin, SearchX, ShieldCheck, Stethoscope } from "lucide-react";
 import { findPublicChip } from "@/lib/data/queries";
-import { formatChip, isValidChip, normalizeChip } from "@/lib/utils";
+import { fileHref, formatChip, isValidChip, normalizeChip } from "@/lib/utils";
+import siteImages from "@/lib/site-images.json";
 import { ANIMAL_STATUS, SEX_LABEL } from "@/lib/labels";
 import { Alert, Avatar, Badge, ButtonLink, Card, InfoItem } from "@/components/ui";
 import { ChipSearch } from "@/components/chip-search";
@@ -57,17 +58,16 @@ function HeroVisual() {
     <div className="relative mx-auto aspect-[4/3] w-full max-w-xl">
       <div className="absolute inset-0 overflow-hidden rounded-[2rem] bg-brand-100">
         <Image
-          src="/images/hero.jpg"
-          alt="Un chien et un chat allongés dans l'herbe"
+          src={fileHref(siteImages["hero-veterinaire-madagascar"])!}
+          alt="Une vétérinaire malgache lit la puce électronique d’un chien dans une clinique"
           fill
-          priority
+          preload
+          unoptimized
           sizes="(min-width: 1024px) 40vw, 100vw"
           className="object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-tr from-brand-900/30 via-transparent to-transparent" />
       </div>
-      {/* Halo « scan » de la puce */}
-      <div className="absolute left-[38%] top-[48%] size-28 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/80 shadow-[0_0_0_10px_rgba(255,255,255,0.18)] sm:size-36" />
       <div className="absolute -bottom-5 left-4 flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-xl ring-1 ring-line sm:left-8">
         <span className="flex size-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
           <ShieldCheck className="size-5" />

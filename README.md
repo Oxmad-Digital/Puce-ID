@@ -58,6 +58,10 @@ Sans `RESEND_API_KEY`, les e-mails sont affichés dans la console du serveur (pr
 
 ## Cloudflare R2
 
+Les visuels du site (accueil et authentification) sont servis en WebP depuis R2 via la route de fichiers existante. Le manifeste `src/lib/site-images.json` contient les clés autorisées pour ces images publiques ; le bucket reste privé si `R2_PUBLIC_URL` n’est pas configuré. Les composants `Image` utilisent `unoptimized` pour laisser le navigateur suivre la redirection signée vers ces fichiers déjà compressés (l’optimiseur Next.js ne suit pas les redirections des routes internes).
+
+`npm run r2:images` convertit les sources PNG/JPEG de `public/images/` en WebP (qualité 82), vérifie leur présence dans R2 et envoie uniquement les fichiers manquants. Les clés incluent une empreinte du contenu et les objets utilisent un cache d’un an. Le manifeste est mis à jour après vérification de tous les fichiers. Les sources sont conservées pour permettre une nouvelle compression.
+
 Les photos et documents sont envoyés directement du navigateur vers R2 via une URL signée (`POST /api/upload`), puis servis par `GET /api/files/<clé>` (redirection signée ; les documents sont réservés aux personnes ayant accès à la fiche).
 
 Le bucket doit autoriser ces origines dans **R2 → puce-id → Settings → CORS policy** :
