@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { cn, initials } from "@/lib/utils";
 import { ANIMAL_STATUS, type Tone } from "@/lib/labels";
+import { T } from "@/components/layout/lang-toggle";
 import type { AnimalStatus } from "@/lib/db/schema";
 
 /* --------------------------------- Button --------------------------------- */
@@ -86,7 +87,11 @@ export function Badge({
 
 export function StatusBadge({ status }: { status: AnimalStatus }) {
   const s = ANIMAL_STATUS[status];
-  return <Badge tone={s.tone}>{s.label}</Badge>;
+  return (
+    <Badge tone={s.tone}>
+      <T {...s.label} />
+    </Badge>
+  );
 }
 
 /* --------------------------------- Avatar --------------------------------- */
@@ -152,9 +157,9 @@ export function StatCard({
   hint,
   hintTone = "green",
 }: {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
-  hint?: string;
+  hint?: ReactNode;
   hintTone?: "green" | "red" | "muted";
 }) {
   return (
@@ -188,7 +193,7 @@ export function PageHeader({
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
-  breadcrumb?: { label: string; href?: string }[];
+  breadcrumb?: { label: ReactNode; href?: string }[];
 }) {
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -227,7 +232,7 @@ export function Field({
   className,
   error,
 }: {
-  label: string;
+  label: ReactNode;
   hint?: ReactNode;
   required?: boolean;
   children: ReactNode;
@@ -246,17 +251,7 @@ export function Field({
   );
 }
 
-export function Input(props: ComponentProps<"input">) {
-  return <input {...props} className={cn("field-input", props.className)} />;
-}
-
-export function Select(props: ComponentProps<"select">) {
-  return <select {...props} className={cn("field-input pr-8", props.className)} />;
-}
-
-export function Textarea(props: ComponentProps<"textarea">) {
-  return <textarea rows={4} {...props} className={cn("field-input resize-y", props.className)} />;
-}
+export { Input, Option, Select, Textarea } from "./fields";
 
 /* ------------------------------ Misc helpers ------------------------------ */
 
@@ -267,8 +262,8 @@ export function EmptyState({
   action,
 }: {
   icon?: ReactNode;
-  title: string;
-  description?: string;
+  title: ReactNode;
+  description?: ReactNode;
   action?: ReactNode;
 }) {
   return (
@@ -314,7 +309,7 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-lg bg-brand-100/50", className)} />;
 }
 
-export function InfoItem({ label, value }: { label: string; value: ReactNode }) {
+export function InfoItem({ label, value }: { label: ReactNode; value: ReactNode }) {
   return (
     <div>
       <dt className="text-[11px] text-muted">{label}</dt>

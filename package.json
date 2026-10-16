@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS=--network-family-autoselection-attempt-timeout=1000 next dev",
+    "dev": "cross-env NODE_OPTIONS=--network-family-autoselection-attempt-timeout=1000 next dev",
     "build": "next build",
     "start": "NODE_OPTIONS=--network-family-autoselection-attempt-timeout=1000 next start",
     "lint": "eslint",
@@ -16,7 +16,7 @@
     "r2:images": "tsx --env-file=.env.local scripts/r2-site-images.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1149.0",
+    "@aws-sdk/client-s3": "^3.1150.0",
     "@aws-sdk/s3-request-presigner": "^3.1149.0",
     "@neondatabase/serverless": "^1.2.0",
     "better-auth": "^1.7.7",
@@ -34,6 +34,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "dotenv": "^18.0.7",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",

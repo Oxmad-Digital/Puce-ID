@@ -7,9 +7,9 @@ export function PageHero({
   description,
   children,
 }: {
-  eyebrow?: string;
-  title: string;
-  description?: string;
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
   children?: ReactNode;
 }) {
   return (

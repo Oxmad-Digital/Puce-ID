@@ -15,6 +15,8 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import type { ActionState } from "@/lib/actions/state";
 import { Alert, buttonClass } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/components/layout/lang-toggle";
+import { translateMessage } from "@/lib/messages-mg";
 
 type Action = (prev: ActionState, form: FormData) => Promise<ActionState>;
 
@@ -48,6 +50,7 @@ export function ActionForm({
   const [state, formAction, pending] = useActionState(action, {});
   const ref = useRef<HTMLFormElement>(null);
   const router = useRouter();
+  const lang = useLang();
 
   useEffect(() => {
     if (!state.ok) return;
@@ -60,7 +63,7 @@ export function ActionForm({
     return (
       <div className="flex flex-col items-center px-4 py-10 text-center">
         <CheckCircle2 className="mb-3 size-10 text-emerald-500" />
-        <p className="max-w-md text-sm text-ink">{state.message}</p>
+        <p className="max-w-md text-sm text-ink">{translateMessage(state.message, lang)}</p>
         <div className="mt-5">{successView}</div>
       </div>
     );
@@ -70,6 +73,8 @@ export function ActionForm({
     <FormContext value={{ state, pending }}>
       <form
         ref={ref}
+        // POST : un envoi avant hydratation ne doit jamais mettre les champs (mots de passe) dans l'URL.
+        method="post"
         className={className}
         noValidate
         onSubmit={(e) => {
@@ -80,12 +85,12 @@ export function ActionForm({
       >
         {state.error && (
           <Alert tone="red" className="mb-4">
-            {state.error}
+            {translateMessage(state.error, lang)}
           </Alert>
         )}
         {state.ok && state.message && !successView && (
           <Alert tone="green" className="mb-4">
-            {state.message}
+            {translateMessage(state.message, lang)}
           </Alert>
         )}
         {children}
@@ -108,14 +113,14 @@ export function FormField({
   className,
 }: {
   name: string;
-  label: string;
+  label: ReactNode;
   required?: boolean;
   hint?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
   const { state } = useFormState();
-  const error = state.fieldErrors?.[name];
+  const error = translateMessage(state.fieldErrors?.[name], useLang());
   return (
     <div className={className}>
       <label className="field-label" htmlFor={name}>

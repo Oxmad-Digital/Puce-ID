@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { FileText, ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { T, useLang } from "@/components/layout/lang-toggle";
+import { translateMessage } from "@/lib/messages-mg";
 
 type Folder = "animals" | "reports" | "documents";
 
@@ -27,13 +29,14 @@ export function PhotoUpload({
   name,
   folder,
   defaultKey,
-  label = "Ajouter une photo (JPG, PNG, WebP)",
+  label,
 }: {
   name: string;
   folder: Folder;
   defaultKey?: string | null;
   label?: string;
 }) {
+  const lang = useLang();
   const [key, setKey] = useState(defaultKey ?? "");
   const [preview, setPreview] = useState<string | null>(defaultKey ? `/api/files/${defaultKey}` : null);
   const [busy, setBusy] = useState(false);
@@ -70,7 +73,7 @@ export function PhotoUpload({
       {preview ? (
         <div className="relative inline-block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="Aperçu" className="h-32 w-32 rounded-lg object-cover ring-1 ring-line" />
+          <img src={preview} alt={lang === "mg" ? "Topi-maso" : "Aperçu"} className="h-32 w-32 rounded-lg object-cover ring-1 ring-line" />
           {busy && (
             <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/70">
               <Loader2 className="size-5 animate-spin text-brand-600" />
@@ -78,7 +81,7 @@ export function PhotoUpload({
           )}
           <button
             type="button"
-            aria-label="Retirer la photo"
+            aria-label={lang === "mg" ? "Esory ny sary" : "Retirer la photo"}
             onClick={() => {
               setKey("");
               setPreview(null);
@@ -95,10 +98,11 @@ export function PhotoUpload({
           onClick={() => inputRef.current?.click()}
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-brand-200 bg-brand-50/40 px-4 py-6 text-xs font-medium text-brand-700 hover:bg-brand-50"
         >
-          <ImagePlus className="size-4" /> {label}
+          <ImagePlus className="size-4" />{" "}
+          {label ?? <T fr="Ajouter une photo (JPG, PNG, WebP)" mg="Hampiditra sary (JPG, PNG, WebP)" />}
         </button>
       )}
-      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-red-600">{translateMessage(error, lang)}</p>}
     </div>
   );
 }
@@ -114,6 +118,7 @@ export function DocumentPicker({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
+  const lang = useLang();
 
   return (
     <div className={className}>
@@ -146,9 +151,9 @@ export function DocumentPicker({
         )}
       >
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <FileText className="size-3.5" />}
-        Ajouter un document
+        <T fr="Ajouter un document" mg="Hampiditra antontan-taratasy" />
       </button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-600">{translateMessage(error, lang)}</p>}
     </div>
   );
 }

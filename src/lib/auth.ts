@@ -28,11 +28,13 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     async sendResetPassword({ user, url }) {
-      await sendMail({
+      // better-auth journalise cette erreur sans la renvoyer au client (anti-énumération des comptes).
+      const sent = await sendMail({
         to: user.email,
         subject: "Réinitialisation de votre mot de passe Puce ID",
         text: `Bonjour ${user.name},\n\nPour choisir un nouveau mot de passe, ouvrez ce lien : ${url}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez ce message.`,
       });
+      if (!sent) throw new Error("E-mail de réinitialisation du mot de passe non envoyé");
     },
   },
   socialProviders: google,

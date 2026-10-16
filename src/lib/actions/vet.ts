@@ -141,8 +141,9 @@ export async function importCsv(_prev: ImportResult, form: FormData): Promise<Im
     for (const a of fresh) if (a.ownerEmail && !owners.has(a.ownerEmail)) owners.set(a.ownerEmail, a);
     const by = user.vet ? `${user.vet.clinicName} (Dr ${user.name})` : "l'équipe Puce ID";
     let invitedCount = 0;
+    let unsentCount = 0;
     for (const [email, a] of owners) {
-      const { userId, invited } = await findOrInviteOwner({
+      const { userId, invited, emailSent } = await findOrInviteOwner({
         name: a.ownerName,
         email,
         phone: a.ownerPhone,
@@ -150,7 +151,8 @@ export async function importCsv(_prev: ImportResult, form: FormData): Promise<Im
         subject: "Votre animal est enregistré dans le registre Puce ID",
         intro: `${by} a enregistré votre animal « ${a.name} » dans le registre national des animaux identifiés (puce ${a.chipNumber}). Un compte a été créé à votre nom pour consulter sa fiche et mettre à jour vos coordonnées.`,
       });
-      if (invited) invitedCount++;
+      if (invited && emailSent) invitedCount++;
+      else if (invited) unsentCount++;
       else await claimRecords(userId, email);
     }
     revalidatePath("/veterinaire/patients");
@@ -161,6 +163,9 @@ export async function importCsv(_prev: ImportResult, form: FormData): Promise<Im
       message:
         `${fresh.length} animal${fresh.length > 1 ? "aux importés" : " importé"}.` +
         (invitedCount ? ` ${invitedCount} propriétaire${invitedCount > 1 ? "s ont" : " a"} reçu une invitation par e-mail.` : ""),
+      error: unsentCount
+        ? `${unsentCount} invitation${unsentCount > 1 ? "s n'ont" : " n'a"} pas pu être envoyée${unsentCount > 1 ? "s" : ""} par e-mail : les comptes sont créés, contactez l'administration pour les renvoyer.`
+        : undefined,
     };
   }
   return { ok: false, imported: 0, errors, error: "Aucune ligne valide à importer." };
@@ -168,24 +173,30 @@ export async function importCsv(_prev: ImportResult, form: FormData): Promise<Im
 
 /* ------------------------------- Admin ------------------------------------ */
 
-export async function reviewVet(userId: string, approve: boolean): Promise<void> {
+export async function reviewVet(userId: string, approve: boolean): Promise<ActionState> {
   const admin = await requireUser();
-  if (admin.role !== "admin") return;
+  if (admin.role !== "admin") return { error: "Réservé à l'administration." };
   const [profile] = await db
     .update(schema.vetProfile)
     .set({ status: approve ? "verified" : "rejected", verifiedAt: approve ? new Date() : null })
     .where(eq(schema.vetProfile.userId, userId))
     .returning({ status: schema.vetProfile.status });
   const vet = await db.query.user.findFirst({ where: eq(schema.user.id, userId), columns: { name: true, email: true } });
-  if (profile && vet) {
-    await sendMail({
-      to: vet.email,
-      subject: approve ? "Votre compte vétérinaire Puce ID est validé" : "Votre compte vétérinaire Puce ID",
-      text: approve
-        ? `Bonjour Dr ${vet.name},\n\nVotre numéro d'ordre a été vérifié : vous pouvez désormais enregistrer des puces et consulter les coordonnées des propriétaires.\n\n${appUrl("/connexion")}`
-        : `Bonjour Dr ${vet.name},\n\nVotre accès vétérinaire n'a pas été validé ou a été suspendu. Pour toute question, répondez à ce message ou écrivez à ${process.env.CONTACT_EMAIL ?? "contact@puceid.mg"}.`,
-    });
-  }
+  if (!profile || !vet) return { error: "Vétérinaire introuvable." };
   revalidatePath("/admin");
   revalidatePath("/admin/veterinaires");
+  const sent = await sendMail({
+    to: vet.email,
+    subject: approve ? "Votre compte vétérinaire Puce ID est validé" : "Votre compte vétérinaire Puce ID",
+    text: approve
+      ? `Bonjour Dr ${vet.name},\n\nVotre numéro d'ordre a été vérifié : vous pouvez désormais enregistrer des puces et consulter les coordonnées des propriétaires.\n\n${appUrl("/connexion")}`
+      : `Bonjour Dr ${vet.name},\n\nVotre accès vétérinaire n'a pas été validé ou a été suspendu. Pour toute question, répondez à ce message ou écrivez à ${process.env.CONTACT_EMAIL ?? "contact@puceid.mg"}.`,
+  });
+  if (!sent) {
+    // Pas de `ok` : le rafraîchissement retirerait la ligne, et avec elle ce message.
+    return {
+      error: `Statut de Dr ${vet.name} mis à jour, mais l'e-mail de notification n'a pas pu lui être envoyé.`,
+    };
+  }
+  return { ok: true };
 }

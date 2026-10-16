@@ -5,7 +5,8 @@ import { HeartHandshake, MapPin, SearchX, ShieldCheck, Stethoscope } from "lucid
 import { findPublicChip } from "@/lib/data/queries";
 import { fileHref, formatChip, isValidChip, normalizeChip } from "@/lib/utils";
 import siteImages from "@/lib/site-images.json";
-import { ANIMAL_STATUS, SEX_LABEL } from "@/lib/labels";
+import { ANIMAL_STATUS, SEX_LABEL, speciesLabel } from "@/lib/labels";
+import { T } from "@/components/layout/lang-toggle";
 import { Alert, Avatar, Badge, ButtonLink, Card, InfoItem } from "@/components/ui";
 import { ChipSearch } from "@/components/chip-search";
 
@@ -16,22 +17,27 @@ export default function HomePage({ searchParams }: PageProps<"/">) {
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:px-8 lg:py-20">
           <div>
             <Badge tone="brand" className="mb-5">
-              Registre des animaux identifiés par puce
+              <T fr="Registre des animaux identifiés par puce" mg="Rejisitry ny biby voamarika amin'ny puce" />
             </Badge>
             <h1 className="text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl lg:text-[2.6rem]">
-              Retrouvez le propriétaire d&apos;un animal grâce à sa puce électronique
+              <T
+                fr="Retrouvez le propriétaire d'un animal grâce à sa puce électronique"
+                mg="Tadiavo ny tompon'ny biby iray amin'ny alalan'ny puce elektronika ao aminy"
+              />
             </h1>
             <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted sm:text-base">
-              Saisissez le numéro de puce à 15 chiffres pour vérifier le statut de l&apos;animal et
-              contacter son propriétaire en toute sécurité.
+              <T
+                fr="Saisissez le numéro de puce à 15 chiffres pour vérifier le statut de l'animal et contacter son propriétaire en toute sécurité."
+                mg="Ampidiro ny laharan'ny puce misy isa 15 mba hamantarana ny toetry ny biby sy hifandraisana amin'ny tompony amin'ny fomba azo antoka."
+              />
             </p>
             <Suspense fallback={<ChipSearch className="mt-7 max-w-lg" />}>
               <SearchWithValue searchParams={searchParams} />
             </Suspense>
             <p className="mt-3 text-xs text-subtle">
-              Vous avez trouvé un animal sans puce ?{" "}
+              <T fr="Vous avez trouvé un animal sans puce ?" mg="Nahita biby tsy misy puce ve ianao ?" />{" "}
               <Link href="/perdu-trouve#declarer" className="font-medium text-brand-700 hover:underline">
-                Déclarez-le ici
+                <T fr="Déclarez-le ici" mg="Ambarao eto" />
               </Link>
             </p>
           </div>
@@ -74,7 +80,9 @@ function HeroVisual() {
         </span>
         <div className="leading-tight">
           <p className="text-xs font-semibold text-ink">Puce ISO 11784</p>
-          <p className="text-[11px] text-muted">Lecture sécurisée · 15 chiffres</p>
+          <p className="text-[11px] text-muted">
+            <T fr="Lecture sécurisée · 15 chiffres" mg="Famakiana voaaro · isa 15" />
+          </p>
         </div>
       </div>
     </div>
@@ -90,8 +98,10 @@ async function SearchResult({ searchParams }: Pick<PageProps<"/">, "searchParams
     return (
       <ResultWrapper>
         <Alert tone="amber">
-          Le numéro saisi comporte {chip.length} chiffre{chip.length > 1 ? "s" : ""}. Un numéro de
-          puce électronique en comporte exactement 15.
+          <T
+            fr={`Le numéro saisi comporte ${chip.length} chiffre${chip.length > 1 ? "s" : ""}. Un numéro de puce électronique en comporte exactement 15.`}
+            mg={`Misy isa ${chip.length} ny laharana nampidirinao. Isa 15 marina no ao amin'ny laharan'ny puce elektronika.`}
+          />
         </Alert>
       </ResultWrapper>
     );
@@ -106,15 +116,21 @@ async function SearchResult({ searchParams }: Pick<PageProps<"/">, "searchParams
           <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-500">
             <SearchX className="size-6" />
           </span>
-          <p className="mt-4 text-sm font-semibold text-ink">Aucun animal enregistré</p>
+          <p className="mt-4 text-sm font-semibold text-ink">
+            <T fr="Aucun animal enregistré" mg="Tsy misy biby voasoratra" />
+          </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted">
-            La puce {formatChip(chip)} n&apos;est pas encore dans le registre. Vous pouvez signaler
-            l&apos;animal trouvé ou contacter un vétérinaire partenaire.
+            <T
+              fr={`La puce ${formatChip(chip)} n'est pas encore dans le registre. Vous pouvez signaler l'animal trouvé ou contacter un vétérinaire partenaire.`}
+              mg={`Mbola tsy ao amin'ny rejisitra ny puce ${formatChip(chip)}. Afaka manambara ilay biby hitanao ianao na mifandray amin'ny dokotera mpiara-miasa aminay.`}
+            />
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <ButtonLink href={`/perdu-trouve?type=found&puce=${chip}#declarer`}>Déclarer un animal trouvé</ButtonLink>
+            <ButtonLink href={`/perdu-trouve?type=found&puce=${chip}#declarer`}>
+              <T fr="Déclarer un animal trouvé" mg="Hanambara biby hita" />
+            </ButtonLink>
             <ButtonLink href="/veterinaires" variant="secondary">
-              Trouver un vétérinaire
+              <T fr="Trouver un vétérinaire" mg="Hitady dokotera mpitsabo biby" />
             </ButtonLink>
           </div>
         </Card>
@@ -130,41 +146,55 @@ async function SearchResult({ searchParams }: Pick<PageProps<"/">, "searchParams
           <div className="flex items-center gap-3">
             <Avatar name={animal.name} size="lg" />
             <div>
-              <p className="text-base font-semibold text-ink">Animal identifié</p>
+              <p className="text-base font-semibold text-ink">
+                <T fr="Animal identifié" mg="Biby fantatra" />
+              </p>
               <p className="font-mono text-xs text-muted">Puce {formatChip(animal.chipNumber)}</p>
             </div>
           </div>
           <div className="flex gap-1.5">
-            <Badge tone="green">Enregistré</Badge>
-            <Badge tone={status.tone}>{status.label}</Badge>
+            <Badge tone="green">
+              <T fr="Enregistré" mg="Voasoratra" />
+            </Badge>
+            <Badge tone={status.tone}>
+              <T {...status.label} />
+            </Badge>
           </div>
         </div>
 
         {animal.status === "lost" && (
           <Alert tone="red" className="mt-5">
-            Cet animal est déclaré <strong>disparu</strong> par son propriétaire. Merci de le
-            contacter sans attendre.
+            <T fr="Cet animal est déclaré" mg="Nambaran'ny tompony fa" />{" "}
+            <strong>
+              <T fr="disparu" mg="very" />
+            </strong>{" "}
+            <T
+              fr="par son propriétaire. Merci de le contacter sans attendre."
+              mg="ity biby ity. Mifandraisa aminy avy hatrany azafady."
+            />
           </Alert>
         )}
 
         <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <InfoItem label="Espèce" value={animal.species} />
-          <InfoItem label="Race" value={animal.breed} />
-          <InfoItem label="Sexe" value={SEX_LABEL[animal.sex]} />
-          <InfoItem label="Statut" value={status.label} />
+          <InfoItem label={<T fr="Espèce" mg="Karazana" />} value={<T {...speciesLabel(animal.species)} />} />
+          <InfoItem label={<T fr="Race" mg="Fokom-biby" />} value={animal.breed} />
+          <InfoItem label={<T fr="Sexe" mg="Lahy sa vavy" />} value={<T {...SEX_LABEL[animal.sex]} />} />
+          <InfoItem label={<T fr="Statut" mg="Toetra" />} value={<T {...status.label} />} />
         </dl>
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row">
           <ButtonLink href={`/puce/${animal.chipNumber}/contact`} className="flex-1">
-            <HeartHandshake className="size-4" /> Contacter anonymement
+            <HeartHandshake className="size-4" /> <T fr="Contacter anonymement" mg="Hifandray tsy mampiseho anarana" />
           </ButtonLink>
           <ButtonLink href={`/puce/${animal.chipNumber}/contester`} variant="secondary" className="flex-1">
-            Contester cet enregistrement
+            <T fr="Contester cet enregistrement" mg="Hanohitra ity fisoratana ity" />
           </ButtonLink>
         </div>
         <p className="mt-4 text-center text-[11px] leading-relaxed text-muted">
-          Les coordonnées du propriétaire ne sont jamais affichées publiquement. Votre message lui
-          est transmis par Puce ID.
+          <T
+            fr="Les coordonnées du propriétaire ne sont jamais affichées publiquement. Votre message lui est transmis par Puce ID."
+            mg="Tsy aseho ampahibemaso mihitsy ny fifandraisana amin'ny tompony. Ny Puce ID no mampita ny hafatrao aminy."
+          />
         </p>
       </Card>
     </ResultWrapper>
@@ -183,41 +213,60 @@ function HowItWorks() {
   const steps = [
     {
       icon: Stethoscope,
-      title: "Le vétérinaire pose la puce",
-      text: "Un vétérinaire vérifié implante la puce et enregistre l'animal et son propriétaire.",
+      title: { fr: "Le vétérinaire pose la puce", mg: "Mametraka ny puce ny dokotera" },
+      text: {
+        fr: "Un vétérinaire vérifié implante la puce et enregistre l'animal et son propriétaire.",
+        mg: "Dokotera mpitsabo biby voamarina no mametraka ny puce sy manoratra ny biby sy ny tompony.",
+      },
     },
     {
       icon: ShieldCheck,
-      title: "Les données sont protégées",
-      text: "Seuls les vétérinaires vérifiés accèdent aux coordonnées, chaque consultation est journalisée.",
+      title: { fr: "Les données sont protégées", mg: "Voaaro ny angona" },
+      text: {
+        fr: "Seuls les vétérinaires vérifiés accèdent aux coordonnées, chaque consultation est journalisée.",
+        mg: "Ny dokotera voamarina ihany no mahita ny fifandraisana, ary voasoratra ao amin'ny diary ny fijerena tsirairay.",
+      },
     },
     {
       icon: MapPin,
-      title: "L'animal retrouve son foyer",
-      text: "Quiconque trouve l'animal peut vérifier la puce et prévenir son propriétaire anonymement.",
+      title: { fr: "L'animal retrouve son foyer", mg: "Mody any an-tranony ny biby" },
+      text: {
+        fr: "Quiconque trouve l'animal peut vérifier la puce et prévenir son propriétaire anonymement.",
+        mg: "Izay mahita ilay biby dia afaka manamarina ny puce ary mampahafantatra ny tompony tsy mampiseho anarana.",
+      },
     },
   ];
   return (
     <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-      <h2 className="text-center text-xl font-bold text-ink sm:text-2xl">Comment fonctionne le registre ?</h2>
+      <h2 className="text-center text-xl font-bold text-ink sm:text-2xl">
+        <T fr="Comment fonctionne le registre ?" mg="Ahoana no fiasan'ny rejisitra ?" />
+      </h2>
       <div className="mt-10 grid gap-5 md:grid-cols-3">
         {steps.map((s, i) => (
-          <Card key={s.title} className="p-6">
+          <Card key={s.title.fr} className="p-6">
             <div className="flex items-center gap-3">
               <span className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                 <s.icon className="size-5" />
               </span>
-              <span className="text-xs font-semibold text-subtle">Étape {i + 1}</span>
+              <span className="text-xs font-semibold text-subtle">
+                <T fr="Étape" mg="Dingana" /> {i + 1}
+              </span>
             </div>
-            <p className="mt-4 text-sm font-semibold text-ink">{s.title}</p>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">{s.text}</p>
+            <p className="mt-4 text-sm font-semibold text-ink">
+              <T {...s.title} />
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">
+              <T {...s.text} />
+            </p>
           </Card>
         ))}
       </div>
       <div className="mt-10 flex flex-wrap justify-center gap-3">
-        <ButtonLink href="/inscription">Créer un compte propriétaire</ButtonLink>
+        <ButtonLink href="/inscription">
+          <T fr="Créer un compte propriétaire" mg="Hamorona kaonty tompon'biby" />
+        </ButtonLink>
         <ButtonLink href="/inscription?role=vet" variant="secondary">
-          Je suis vétérinaire
+          <T fr="Je suis vétérinaire" mg="Dokotera mpitsabo biby aho" />
         </ButtonLink>
       </div>
     </section>

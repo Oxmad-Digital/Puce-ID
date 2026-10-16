@@ -104,7 +104,7 @@ export async function sendInvitation(input: {
 
 /**
  * Retrouve le compte propriétaire correspondant à l'e-mail, ou l'invite s'il n'existe pas.
- * `invited` vaut true quand un compte vient d'être créé (et l'e-mail envoyé).
+ * `invited` vaut true quand un compte vient d'être créé ; `emailSent` indique si l'invitation est partie.
  */
 export async function findOrInviteOwner(input: {
   name: string;
@@ -113,18 +113,24 @@ export async function findOrInviteOwner(input: {
   city?: string | null;
   subject: string;
   intro: string;
-}): Promise<{ userId: string; invited: boolean }> {
+}): Promise<{ userId: string; invited: boolean; emailSent: boolean }> {
   const email = input.email.toLowerCase();
   const existing = await db.query.user.findFirst({
     where: eq(schema.user.email, email),
     columns: { id: true },
   });
-  if (existing) return { userId: existing.id, invited: false };
+  if (existing) return { userId: existing.id, invited: false, emailSent: true };
 
   const account = await createInvitedAccount({ ...input, email, role: "owner" });
   if (!account) throw new Error(`Compte ${email} créé en parallèle`);
-  await sendInvitation({ to: email, name: input.name, password: account.password, subject: input.subject, intro: input.intro });
-  return { userId: account.userId, invited: true };
+  const emailSent = await sendInvitation({
+    to: email,
+    name: input.name,
+    password: account.password,
+    subject: input.subject,
+    intro: input.intro,
+  });
+  return { userId: account.userId, invited: true, emailSent };
 }
 
 /** Rattache au compte les animaux et transferts saisis avec son e-mail. */

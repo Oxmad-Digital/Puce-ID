@@ -3,6 +3,7 @@
 import { useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { buttonClass } from "@/components/ui";
+import { useT } from "@/components/layout/lang-toggle";
 
 /** Fenêtre modale native (<dialog>) avec bouton déclencheur. */
 export function Modal({
@@ -15,14 +16,15 @@ export function Modal({
   className,
 }: {
   trigger: ReactNode;
-  title: string;
-  description?: string;
+  title: ReactNode;
+  description?: ReactNode;
   children: ReactNode;
   variant?: Parameters<typeof buttonClass>[0];
   size?: Parameters<typeof buttonClass>[1];
   className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const t = useT();
   return (
     <>
       <button type="button" className={buttonClass(variant, size, className)} onClick={() => ref.current?.showModal()}>
@@ -38,7 +40,7 @@ export function Modal({
             <h2 className="text-base font-semibold text-ink">{title}</h2>
             {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
           </div>
-          <button type="button" aria-label="Fermer" onClick={() => ref.current?.close()} className="rounded-lg p-1 text-muted hover:bg-surface">
+          <button type="button" aria-label={t("Fermer", "Hidio")} onClick={() => ref.current?.close()} className="rounded-lg p-1 text-muted hover:bg-surface">
             <X className="size-4" />
           </button>
         </div>

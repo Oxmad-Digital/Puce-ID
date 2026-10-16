@@ -3,13 +3,15 @@ import Link from "next/link";
 import { getCurrentUser, homeFor } from "@/lib/session";
 import { ButtonLink } from "@/components/ui";
 import { Logo } from "./logo";
-import { LangToggle } from "./lang-toggle";
+import { LangToggle, T } from "./lang-toggle";
 import { MobileMenu } from "./mobile-menu";
 
 const nav = [
-  { label: "Rechercher une puce", href: "/" },
-  { label: "Vétérinaires", href: "/veterinaires" },
-  { label: "Perdu / Trouvé", href: "/perdu-trouve" },
+  { label: "Rechercher une puce", labelMg: "Hikaroka puce", href: "/" },
+  { label: "Vétérinaires", labelMg: "Dokotera mpitsabo biby", href: "/veterinaires" },
+  { label: "Perdu / Trouvé", labelMg: "Very / Hita", href: "/perdu-trouve" },
+  { label: "À propos", labelMg: "Momba anay", href: "/a-propos" },
+  { label: "Contact", labelMg: "Fifandraisana", href: "/contact" },
 ];
 
 async function AccountButton() {
@@ -17,13 +19,13 @@ async function AccountButton() {
   if (user) {
     return (
       <ButtonLink href={homeFor(user.role)} size="sm">
-        Mon espace
+        <T fr="Mon espace" mg="Ny kaontiko" />
       </ButtonLink>
     );
   }
   return (
     <ButtonLink href="/connexion" size="sm">
-      Connexion
+      <T fr="Connexion" mg="Hiditra" />
     </ButtonLink>
   );
 }
@@ -36,7 +38,7 @@ export function PublicHeader() {
         <nav className="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
           {nav.map((n) => (
             <Link key={n.href} href={n.href} className="hover:text-brand-700">
-              {n.label}
+              <T fr={n.label} mg={n.labelMg} />
             </Link>
           ))}
         </nav>
@@ -46,7 +48,7 @@ export function PublicHeader() {
             <Suspense
               fallback={
                 <ButtonLink href="/connexion" size="sm">
-                  Connexion
+                  <T fr="Connexion" mg="Hiditra" />
                 </ButtonLink>
               }
             >

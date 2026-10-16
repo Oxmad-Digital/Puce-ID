@@ -1,11 +1,11 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const LANGS = ["fr", "mg"] as const;
-type Lang = (typeof LANGS)[number];
+export type Lang = (typeof LANGS)[number];
 
 const listeners = new Set<() => void>();
 
@@ -24,10 +24,39 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
+/** Langue choisie (cookie `lang`). Rendu serveur en français, puis mis à jour côté client. */
+export function useLang(): Lang {
+  return useSyncExternalStore(subscribe, readLang, () => "fr" as Lang);
+}
+
+/** Texte bilingue. */
+export type Bi = { fr: string; mg: string };
+
+/** Texte bilingue qui suit le sélecteur FR / MG. */
+export function T({ fr, mg }: Bi) {
+  return useLang() === "mg" ? mg : fr;
+}
+
+/** Bloc entier par langue (pages de texte long). */
+export function ByLang({ fr, mg }: { fr: ReactNode; mg: ReactNode }) {
+  return useLang() === "mg" ? mg : fr;
+}
+
+/** `t(fr, mg)` pour les attributs (placeholder, aria-label…) des composants client. */
+export function useT() {
+  const lang = useLang();
+  return (fr: string, mg: string) => (lang === "mg" ? mg : fr);
+}
+
+/** Libellé bilingue, ou chaîne déjà traduite. */
+export function pick(text: string | Bi, lang: Lang) {
+  return typeof text === "string" ? text : text[lang];
+}
+
 /** Bascule FR / MG — la préférence est conservée dans un cookie `lang`. */
 export function LangToggle({ inverted }: { inverted?: boolean }) {
   const router = useRouter();
-  const lang = useSyncExternalStore(subscribe, readLang, () => "fr" as Lang);
+  const lang = useLang();
 
   return (
     <div

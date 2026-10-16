@@ -3,11 +3,13 @@ import { resendInvitation, setClinicRole } from "@/lib/actions/clinics";
 import { reviewVet } from "@/lib/actions/vet";
 import type { ClinicRole } from "@/lib/db/schema";
 import { Avatar, Badge, Button } from "@/components/ui";
+import { ActionForm, SubmitButton } from "@/components/forms/action-form";
+import { T } from "@/components/layout/lang-toggle";
 
 export const VET_STATUS = {
-  pending: { label: "Vérification en cours", tone: "amber" },
-  verified: { label: "Vérifié", tone: "green" },
-  rejected: { label: "Refusé", tone: "red" },
+  pending: { label: { fr: "Vérification en cours", mg: "Eo am-panamarinana" }, tone: "amber" },
+  verified: { label: { fr: "Vérifié", mg: "Voamarina" }, tone: "green" },
+  rejected: { label: { fr: "Refusé", mg: "Nolavina" }, tone: "red" },
 } as const;
 
 export type ClinicMember = {
@@ -39,43 +41,60 @@ export function ClinicMembers({
               <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-ink">
                 Dr {m.user.name}
                 {m.clinicRole === "manager" && (
-                  <Badge tone="brand"><ShieldCheck className="size-3" /> Responsable</Badge>
+                  <Badge tone="brand"><ShieldCheck className="size-3" /> <T fr="Responsable" mg="Tompon'andraikitra" />
+                  </Badge>
                 )}
               </p>
               <p className="truncate text-[11px] text-muted">
-                {m.user.email} · N° d&apos;ordre <span className="font-mono">{m.orderNumber}</span>
+                {m.user.email} · <T fr="N° d'ordre" mg="Laharana (Ordre)" /> <span className="font-mono">{m.orderNumber}</span>
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {m.user.mustChangePassword && <Badge tone="gray"><Mail className="size-3" /> Invitation en attente</Badge>}
-            <Badge tone={VET_STATUS[m.status].tone}>{VET_STATUS[m.status].label}</Badge>
+            {m.user.mustChangePassword && (
+              <Badge tone="gray">
+                <Mail className="size-3" /> <T fr="Invitation en attente" mg="Fanasana miandry" />
+              </Badge>
+            )}
+            <Badge tone={VET_STATUS[m.status].tone}><T {...VET_STATUS[m.status].label} /></Badge>
           </div>
           {(canManage || isAdmin) && (
             <div className="flex flex-wrap justify-end gap-1.5">
               {m.user.mustChangePassword && (
-                <form action={resendInvitation.bind(null, m.userId)}>
-                  <Button size="sm" variant="ghost">Renvoyer l&apos;invitation</Button>
-                </form>
+                <ActionForm action={resendInvitation.bind(null, m.userId)}>
+                  <SubmitButton size="sm" variant="ghost">
+                    <T fr="Renvoyer l'invitation" mg="Alefaso indray ny fanasana" />
+                  </SubmitButton>
+                </ActionForm>
               )}
               {m.clinicRole === "member" ? (
                 <form action={setClinicRole.bind(null, m.userId, "manager")}>
-                  <Button size="sm" variant="ghost">Nommer responsable</Button>
+                  <Button size="sm" variant="ghost">
+                    <T fr="Nommer responsable" mg="Tendreo ho tompon'andraikitra" />
+                  </Button>
                 </form>
               ) : (
                 managers > 1 && (
                   <form action={setClinicRole.bind(null, m.userId, "member")}>
-                    <Button size="sm" variant="ghost">Retirer responsable</Button>
+                    <Button size="sm" variant="ghost">
+                      <T fr="Retirer responsable" mg="Esory ho tompon'andraikitra" />
+                    </Button>
                   </form>
                 )
               )}
               {isAdmin && m.status !== "verified" && (
-                <form action={reviewVet.bind(null, m.userId, true)}><Button size="sm">Valider</Button></form>
+                <ActionForm action={reviewVet.bind(null, m.userId, true)}>
+                  <SubmitButton size="sm">
+                    <T fr="Valider" mg="Ankatoavy" />
+                  </SubmitButton>
+                </ActionForm>
               )}
               {isAdmin && m.status !== "rejected" && (
-                <form action={reviewVet.bind(null, m.userId, false)}>
-                  <Button size="sm" variant="ghost">{m.status === "verified" ? "Suspendre" : "Refuser"}</Button>
-                </form>
+                <ActionForm action={reviewVet.bind(null, m.userId, false)}>
+                  <SubmitButton size="sm" variant="ghost">
+                    {m.status === "verified" ? <T fr="Suspendre" mg="Ahatoy" /> : <T fr="Refuser" mg="Lavina" />}
+                  </SubmitButton>
+                </ActionForm>
               )}
             </div>
           )}
