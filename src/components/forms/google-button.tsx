@@ -2,6 +2,7 @@
 
 import { authClient } from "@/lib/auth-client";
 import { buttonClass } from "@/components/ui";
+import { T } from "@/components/layout/lang-toggle";
 
 export function GoogleButton({ callbackURL = "/espace" }: { callbackURL?: string }) {
   return (
@@ -16,7 +17,7 @@ export function GoogleButton({ callbackURL = "/espace" }: { callbackURL?: string
         <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.77.43 3.45 1.18 4.94l3.66-2.84z" />
         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z" />
       </svg>
-      Continuer avec Google
+      <T fr="Continuer avec Google" mg="Hiditra amin'ny Google" />
     </button>
   );
 }
@@ -24,7 +25,7 @@ export function GoogleButton({ callbackURL = "/espace" }: { callbackURL?: string
 export function OrSeparator() {
   return (
     <div className="my-4 flex items-center gap-3 text-[11px] text-subtle">
-      <span className="h-px flex-1 bg-line" /> ou <span className="h-px flex-1 bg-line" />
+      <span className="h-px flex-1 bg-line" /> <T fr="ou" mg="na" /> <span className="h-px flex-1 bg-line" />
     </div>
   );
 }

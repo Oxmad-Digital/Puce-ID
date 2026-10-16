@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { BadgeCheck, Mail, MapPin, Phone, Stethoscope } from "lucide-react";
 import { listVerifiedVets, listVetCities } from "@/lib/data/queries";
-import { Avatar, ButtonLink, Card, EmptyState, Input, Select, Skeleton } from "@/components/ui";
+import { Avatar, ButtonLink, Card, EmptyState, Input, Option, Select, Skeleton } from "@/components/ui";
+import { T } from "@/components/layout/lang-toggle";
 import { PageHero } from "@/components/page-hero";
 
 export const metadata = { title: "Vétérinaires partenaires" };
@@ -10,9 +11,14 @@ export default function VetsPage({ searchParams }: PageProps<"/veterinaires">) {
   return (
     <>
       <PageHero
-        eyebrow="Ressources"
-        title="Vétérinaires partenaires"
-        description="Ces cliniques ont vu leur numéro d'ordre vérifié par Puce ID. Elles peuvent poser une puce, lire une puce et enregistrer votre animal dans le registre."
+        eyebrow={<T fr="Ressources" mg="Loharano" />}
+        title={<T fr="Vétérinaires partenaires" mg="Dokotera mpiara-miasa" />}
+        description={
+          <T
+            fr="Ces cliniques ont vu leur numéro d'ordre vérifié par Puce ID. Elles peuvent poser une puce, lire une puce et enregistrer votre animal dans le registre."
+            mg="Nohamarinin'ny Puce ID ny laharan'ireto toeram-pitsaboana ireto ao amin'ny Holafitra (Ordre). Afaka mametraka puce, mamaky puce ary manoratra ny bibinao ao amin'ny rejisitra izy ireo."
+          />
+        }
       />
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <Suspense fallback={<Skeleton className="h-96" />}>
@@ -24,11 +30,20 @@ export default function VetsPage({ searchParams }: PageProps<"/veterinaires">) {
               <Stethoscope className="size-5" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-ink">Vous êtes vétérinaire ?</p>
-              <p className="text-xs text-muted">Rejoignez le registre pour enregistrer vos patients et lire les puces.</p>
+              <p className="text-sm font-semibold text-ink">
+                <T fr="Vous êtes vétérinaire ?" mg="Dokotera mpitsabo biby ve ianao ?" />
+              </p>
+              <p className="text-xs text-muted">
+                <T
+                  fr="Rejoignez le registre pour enregistrer vos patients et lire les puces."
+                  mg="Midira ao amin'ny rejisitra mba hanoratra ireo marary arahinao sy hamaky puce."
+                />
+              </p>
             </div>
           </div>
-          <ButtonLink href="/inscription?role=vet">Créer un compte vétérinaire</ButtonLink>
+          <ButtonLink href="/inscription?role=vet">
+            <T fr="Créer un compte vétérinaire" mg="Hamorona kaonty dokotera" />
+          </ButtonLink>
         </Card>
       </div>
     </>
@@ -47,15 +62,15 @@ async function VetDirectory({ searchParams }: Pick<PageProps<"/veterinaires">, "
   return (
     <>
       <form className="mb-6 flex flex-col gap-2 sm:flex-row">
-        <Input name="q" defaultValue={q} placeholder="Nom de la clinique ou du vétérinaire" className="sm:max-w-sm" />
+        <Input name="q" defaultValue={q} placeholder={{ fr: "Nom de la clinique ou du vétérinaire", mg: "Anaran'ny toeram-pitsaboana na ny dokotera" }} className="sm:max-w-sm" />
         <Select name="ville" defaultValue={city} className="sm:max-w-[200px]">
-          <option value="">Toutes les villes</option>
+          <Option value="" fr="Toutes les villes" mg="Tanàna rehetra" />
           {cities.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </Select>
         <button className="h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700">
-          Filtrer
+          <T fr="Filtrer" mg="Sivano" />
         </button>
       </form>
 
@@ -63,8 +78,8 @@ async function VetDirectory({ searchParams }: Pick<PageProps<"/veterinaires">, "
         <Card>
           <EmptyState
             icon={<Stethoscope className="size-5" />}
-            title="Aucun vétérinaire trouvé"
-            description="Essayez une autre ville ou retirez les filtres."
+            title={<T fr="Aucun vétérinaire trouvé" mg="Tsy nisy dokotera hita" />}
+            description={<T fr="Essayez une autre ville ou retirez les filtres." mg="Andramo tanàna hafa na esory ny sivana." />}
           />
         </Card>
       ) : (

@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/session";
 import { formatChip } from "@/lib/utils";
 import { PageHeader } from "@/components/ui";
 import { AnimalForm } from "@/components/forms/animal-form";
+import { T } from "@/components/layout/lang-toggle";
 
 export const metadata = { title: "Modifier la fiche" };
 
@@ -17,9 +18,13 @@ export default async function EditAnimalPage({ params }: PageProps<"/animaux/[id
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
-        title={`Modifier ${animal.name}`}
+        title={<T fr={`Modifier ${animal.name}`} mg={`Hanova an'i ${animal.name}`} />}
         description={`Puce ${formatChip(animal.chipNumber)}`}
-        breadcrumb={[{ label: "Animaux", href: "/mes-animaux" }, { label: animal.name, href: `/animaux/${id}` }, { label: "Modifier" }]}
+        breadcrumb={[
+          { label: <T fr="Animaux" mg="Biby" />, href: "/mes-animaux" },
+          { label: animal.name, href: `/animaux/${id}` },
+          { label: <T fr="Modifier" mg="Hanova" /> },
+        ]}
       />
       <AnimalForm action={saveAnimal.bind(null, animal.id)} mode="edit" role={user.role} cancelHref={`/animaux/${id}`} defaults={animal} />
     </div>

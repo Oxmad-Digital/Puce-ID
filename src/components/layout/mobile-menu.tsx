@@ -3,14 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { useLang } from "./lang-toggle";
 
-export function MobileMenu({ items }: { items: { label: string; href: string }[] }) {
+export function MobileMenu({ items }: { items: { label: string; labelMg?: string; href: string }[] }) {
   const [open, setOpen] = useState(false);
+  const lang = useLang();
   return (
     <div className="md:hidden">
       <button
         type="button"
-        aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+        aria-label={
+          lang === "mg" ? (open ? "Hidio ny menio" : "Sokafy ny menio") : open ? "Fermer le menu" : "Ouvrir le menu"
+        }
         onClick={() => setOpen((o) => !o)}
         className="flex size-9 items-center justify-center rounded-lg text-ink hover:bg-brand-50"
       >
@@ -25,7 +29,7 @@ export function MobileMenu({ items }: { items: { label: string; href: string }[]
               onClick={() => setOpen(false)}
               className="block rounded-lg px-3 py-2.5 text-sm font-medium text-ink hover:bg-brand-50"
             >
-              {i.label}
+              {lang === "mg" && i.labelMg ? i.labelMg : i.label}
             </Link>
           ))}
         </div>

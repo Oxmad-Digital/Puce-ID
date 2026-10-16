@@ -78,6 +78,14 @@ function readVetForm(form: FormData) {
 
 const EMAIL_TAKEN = { fieldErrors: { vetEmail: "Un compte existe déjà avec cette adresse." } };
 
+/** Compte créé mais e-mail non parti : `ok` pour rafraîchir la liste, `error` pour prévenir l'utilisateur. */
+function invitationNotSent(name: string): ActionState {
+  return {
+    ok: true,
+    error: `Le compte de ${name} a été créé, mais l'e-mail d'invitation n'a pas pu être envoyé. Réessayez plus tard avec « Renvoyer l'invitation ».`,
+  };
+}
+
 /** L'administration invite une nouvelle clinique et son vétérinaire responsable (déjà vérifié). */
 export async function inviteClinic(_prev: ActionState, form: FormData): Promise<ActionState> {
   const admin = await requireUser();
@@ -111,15 +119,16 @@ export async function inviteClinic(_prev: ActionState, form: FormData): Promise<
     status: "verified",
     verifiedAt: new Date(),
   });
-  await sendInvitation({
+  const sent = await sendInvitation({
     to: v.vetEmail,
     name: `Dr ${v.vetName}`,
     password: account.password,
     subject: `${c.name} est invitée sur Puce ID`,
     intro: `${c.name} (${c.city}) est invitée à rejoindre Puce ID, le registre national des animaux identifiés par puce électronique. Vous en êtes le vétérinaire responsable : vous pourrez enregistrer vos patients, lire les puces, gérer les transferts et inviter vos confrères depuis l'espace « Ma clinique ».`,
   });
-  await logAccess(admin.id, null, "invitation_sent", `Clinique ${c.name} — Dr ${v.vetName}`);
   revalidateClinicPages();
+  if (!sent) return invitationNotSent(`Dr ${v.vetName}`);
+  await logAccess(admin.id, null, "invitation_sent", `Clinique ${c.name} — Dr ${v.vetName}`);
   return { ok: true, message: `Invitation envoyée à Dr ${v.vetName} (${v.vetEmail}).` };
 }
 
@@ -149,7 +158,7 @@ export async function inviteColleague(clinicId: string, _prev: ActionState, form
     status: byAdmin ? "verified" : "pending",
     verifiedAt: byAdmin ? new Date() : null,
   });
-  await sendInvitation({
+  const sent = await sendInvitation({
     to: v.vetEmail,
     name: `Dr ${v.vetName}`,
     password: account.password,
@@ -158,25 +167,26 @@ export async function inviteColleague(clinicId: string, _prev: ActionState, form
       `${byAdmin ? "L'équipe Puce ID" : `Dr ${user.name}`} vous invite à rejoindre ${target.name} (${target.city}) sur Puce ID, le registre national des animaux identifiés.` +
       (byAdmin ? "" : "\nVotre numéro d'ordre sera vérifié par notre équipe avant l'accès aux coordonnées des propriétaires et l'enregistrement de puces."),
   });
-  await logAccess(user.id, null, "invitation_sent", `Dr ${v.vetName} → ${target.name}`);
   revalidateClinicPages();
+  if (!sent) return invitationNotSent(`Dr ${v.vetName}`);
+  await logAccess(user.id, null, "invitation_sent", `Dr ${v.vetName} → ${target.name}`);
   return { ok: true, message: `Invitation envoyée à Dr ${v.vetName} (${v.vetEmail}).` };
 }
 
 /** Renvoie l'invitation avec un nouveau mot de passe provisoire (compte pas encore activé). */
-export async function resendInvitation(userId: string): Promise<void> {
+export async function resendInvitation(userId: string): Promise<ActionState> {
   const user = await requireUser();
   const invitee = await db.query.user.findFirst({
     where: eq(schema.user.id, userId),
     with: { vetProfile: { with: { clinic: true } } },
   });
-  if (!invitee?.mustChangePassword) return;
+  if (!invitee?.mustChangePassword) return { error: "Ce compte est déjà activé." };
   const clinicId = invitee.vetProfile?.clinicId;
-  if (user.role !== "admin" && !(clinicId && canManage(user, clinicId))) return;
+  if (user.role !== "admin" && !(clinicId && canManage(user, clinicId))) return { error: "Action non autorisée." };
 
   const password = await resetTemporaryPassword(invitee.id);
   const clinicName = invitee.vetProfile?.clinic.name;
-  await sendInvitation({
+  const sent = await sendInvitation({
     to: invitee.email,
     name: invitee.role === "vet" ? `Dr ${invitee.name}` : invitee.name,
     password,
@@ -185,8 +195,10 @@ export async function resendInvitation(userId: string): Promise<void> {
       ? `Vous avez été invité à rejoindre ${clinicName} sur Puce ID, le registre national des animaux identifiés. Voici un nouveau mot de passe provisoire (le précédent n'est plus valable).`
       : "Un compte Puce ID a été créé à votre nom. Voici un nouveau mot de passe provisoire (le précédent n'est plus valable).",
   });
+  if (!sent) return { error: "L'e-mail d'invitation n'a pas pu être envoyé. Réessayez dans quelques minutes." };
   await logAccess(user.id, null, "invitation_sent", `Relance ${invitee.email}`);
   revalidateClinicPages();
+  return { ok: true, message: `Invitation renvoyée à ${invitee.email}.` };
 }
 
 /* -------------------------------------------------------------------------- */

@@ -83,15 +83,18 @@ function canEdit(u: CurrentUser, a: EditableAnimal) {
   );
 }
 
-/** Rattache le propriétaire saisi à son compte, ou lui crée un compte invité (mot de passe provisoire). */
+/**
+ * Rattache le propriétaire saisi à son compte, ou lui crée un compte invité (mot de passe provisoire).
+ * `invitationFailed` : le compte a été créé mais l'e-mail d'invitation n'est pas parti.
+ */
 async function resolveOwner(
   user: CurrentUser,
   data: { name: string; chipNumber: string; ownerName: string; ownerEmail: string | null; ownerPhone: string | null; ownerCity: string | null },
 ) {
-  if (user.role === "owner") return user.id;
-  if (!data.ownerEmail) return null;
+  if (user.role === "owner") return { ownerId: user.id, invitationFailed: false };
+  if (!data.ownerEmail) return { ownerId: null, invitationFailed: false };
   const by = user.vet ? `${user.vet.clinicName} (Dr ${user.name})` : "l'équipe Puce ID";
-  const { userId } = await findOrInviteOwner({
+  const { userId, invited, emailSent } = await findOrInviteOwner({
     name: data.ownerName,
     email: data.ownerEmail,
     phone: data.ownerPhone,
@@ -99,7 +102,12 @@ async function resolveOwner(
     subject: `${data.name} est enregistré dans le registre Puce ID`,
     intro: `${data.name} vient d'être enregistré dans le registre national des animaux identifiés par ${by} (puce ${data.chipNumber}). Un compte a été créé à votre nom : il vous permet de consulter sa fiche, de mettre à jour vos coordonnées et de le déclarer perdu en cas de disparition.`,
   });
-  return userId;
+  return { ownerId: userId, invitationFailed: invited && !emailSent };
+}
+
+/** Fiche de l'animal, avec un avertissement si l'invitation du propriétaire n'est pas partie. */
+function animalUrl(id: string, invitationFailed: boolean) {
+  return `/animaux/${id}${invitationFailed ? "?invitation=echec" : ""}`;
 }
 
 export async function saveAnimal(
@@ -141,7 +149,8 @@ export async function saveAnimal(
   if (animalId) {
     const current = await db.query.animal.findFirst({ where: eq(animal.id, animalId) });
     if (!current || !canEdit(user, current)) return { error: "Vous ne pouvez pas modifier cette fiche." };
-    const ownerId = current.ownerId ?? (await resolveOwner(user, data));
+    const resolved = current.ownerId ? null : await resolveOwner(user, data);
+    const ownerId = current.ownerId ?? resolved?.ownerId ?? null;
     await db
       .update(animal)
       .set({
@@ -154,10 +163,10 @@ export async function saveAnimal(
       .where(eq(animal.id, animalId));
     await logAccess(user.id, animalId, "animal_updated", data.name);
     revalidatePath(`/animaux/${animalId}`);
-    redirect(`/animaux/${animalId}`);
+    redirect(animalUrl(animalId, resolved?.invitationFailed ?? false));
   }
 
-  const ownerId = await resolveOwner(user, data);
+  const { ownerId, invitationFailed } = await resolveOwner(user, data);
   const [created] = await db
     .insert(animal)
     .values({
@@ -190,7 +199,7 @@ export async function saveAnimal(
   ]);
   await logAccess(user.id, created.id, isVet ? "chip_implanted" : "animal_registered", data.name);
 
-  redirect(`/animaux/${created.id}`);
+  redirect(animalUrl(created.id, invitationFailed));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -342,22 +351,26 @@ export async function initiateTransfer(animalId: string, _prev: ActionState, for
   });
   await logAccess(user.id, animalId, "transfer_initiated", `→ ${parsed.data.toName}`);
   const proposal = `${row.ownerName} souhaite vous transférer la propriété de ${row.name} (puce ${row.chipNumber}). La demande est valable 14 jours.`;
-  if (invited) {
-    await sendInvitation({
-      to: parsed.data.toEmail,
-      name: parsed.data.toName,
-      password: invited.password,
-      subject: `Transfert de propriété : ${row.name}`,
-      intro: `${proposal}\nUn compte Puce ID a été créé à votre nom : connectez-vous puis ouvrez « Transferts » pour accepter ou refuser.`,
-    });
-  } else {
-    await sendMail({
-      to: parsed.data.toEmail,
-      subject: `Transfert de propriété : ${row.name}`,
-      text: `Bonjour ${parsed.data.toName},\n\n${proposal}\nConnectez-vous pour accepter ou refuser : ${appUrl("/transferts")}`,
-    });
-  }
+  const sent = invited
+    ? await sendInvitation({
+        to: parsed.data.toEmail,
+        name: parsed.data.toName,
+        password: invited.password,
+        subject: `Transfert de propriété : ${row.name}`,
+        intro: `${proposal}\nUn compte Puce ID a été créé à votre nom : connectez-vous puis ouvrez « Transferts » pour accepter ou refuser.`,
+      })
+    : await sendMail({
+        to: parsed.data.toEmail,
+        subject: `Transfert de propriété : ${row.name}`,
+        text: `Bonjour ${parsed.data.toName},\n\n${proposal}\nConnectez-vous pour accepter ou refuser : ${appUrl("/transferts")}`,
+      });
   revalidatePath("/transferts");
+  if (!sent) {
+    // Pas de `ok` : le rafraîchissement fermerait la fenêtre du formulaire, et avec elle ce message.
+    return {
+      error: `La demande de transfert est enregistrée, mais l'e-mail n'a pas pu être envoyé à ${parsed.data.toName}. Prévenez-le directement : il pourra accepter depuis « Transferts » une fois connecté.`,
+    };
+  }
   return { ok: true, message: `Invitation envoyée à ${parsed.data.toName}. Le transfert sera effectif après son acceptation.` };
 }
 
@@ -410,15 +423,29 @@ export async function cancelTransfer(transferId: string): Promise<void> {
 /*                          Changement de clinique                            */
 /* -------------------------------------------------------------------------- */
 
-/** Notifie les vétérinaires vérifiés (et l'adresse générale) d'une clinique. */
-async function notifyClinic(clinicId: string, subject: string, text: string) {
+/** Adresses d'une clinique : adresse générale et vétérinaires vérifiés. */
+async function clinicEmails(clinicId: string) {
   const target = await db.query.clinic.findFirst({
     where: eq(schema.clinic.id, clinicId),
     with: { members: { where: eq(schema.vetProfile.status, "verified"), with: { user: { columns: { email: true } } } } },
   });
-  if (!target) return;
-  const to = new Set([target.email, ...target.members.map((m) => m.user.email)].filter((e): e is string => Boolean(e)));
+  if (!target) return [];
+  return [target.email, ...target.members.map((m) => m.user.email)].filter((e): e is string => Boolean(e));
+}
+
+/** Notifie les vétérinaires vérifiés (et l'adresse générale) d'une clinique. */
+async function notifyClinic(clinicId: string, subject: string, text: string) {
+  const to = new Set(await clinicEmails(clinicId));
   await Promise.all([...to].map((email) => sendMail({ to: email, subject, text })));
+}
+
+/** Notifie les administrateurs de Puce ID. */
+async function notifyAdmins(subject: string, text: string) {
+  const admins = await db.query.user.findMany({
+    where: eq(schema.user.role, "admin"),
+    columns: { email: true },
+  });
+  await Promise.all(admins.map((a) => sendMail({ to: a.email, subject, text })));
 }
 
 async function applyClinicChange(animalId: string, toClinicId: string) {
@@ -450,8 +477,11 @@ export async function initiateClinicTransfer(animalId: string, _prev: ActionStat
   if (pending) return { error: "Un changement de clinique est déjà en attente pour cet animal." };
 
   const reason = optional(form, "reason");
-  // Pas d'acceptation nécessaire si l'administration ou la clinique d'accueil elle-même effectue le changement.
-  const immediate = user.role === "admin" || user.vet?.clinicId === toClinicId;
+  // Changement immédiat pour l'administration, ou si la clinique d'accueil prend en charge un animal
+  // sans clinique (aucun dossier n'est retiré à personne). Sinon, seule l'administration valide.
+  const immediate =
+    user.role === "admin" ||
+    (row.clinicId === null && user.vet?.status === "verified" && user.vet.clinicId === toClinicId);
   await db.insert(clinicTransfer).values({
     animalId,
     fromClinicId: row.clinicId,
@@ -470,33 +500,58 @@ export async function initiateClinicTransfer(animalId: string, _prev: ActionStat
     return { ok: true, message: `${row.name} est désormais suivi par ${target.name}.` };
   }
 
-  await notifyClinic(
-    toClinicId,
-    `Nouveau patient proposé : ${row.name}`,
-    `Bonjour,\n\n${user.name} propose que ${target.name} devienne la clinique responsable de ${row.name} (${row.species.toLowerCase()}, puce ${row.chipNumber}).${reason ? `\nMotif : ${reason}` : ""}\n\nAcceptez ou refusez la demande dans les 14 jours : ${appUrl("/transferts")}`,
+  const fromClinic = row.clinicId
+    ? await db.query.clinic.findFirst({ where: eq(schema.clinic.id, row.clinicId), columns: { name: true } })
+    : null;
+  await notifyAdmins(
+    `Demande de transfert de dossier à valider : ${row.name}`,
+    `Bonjour,\n\n${user.name} demande le transfert du dossier de ${row.name} (${row.species.toLowerCase()}, puce ${row.chipNumber}) de ${fromClinic?.name ?? "« sans clinique »"} vers ${target.name} (${target.city}).${reason ? `\nMotif : ${reason}` : ""}\n\nValidez ou refusez la demande dans les 14 jours : ${appUrl("/transferts")}`,
   );
   revalidatePath(`/animaux/${animalId}`);
   revalidatePath("/transferts");
-  return { ok: true, message: `Demande envoyée à ${target.name}. Le changement sera effectif après son acceptation.` };
+  return {
+    ok: true,
+    message: `Demande de transfert vers ${target.name} envoyée. Le changement sera effectif après validation par l'administration.`,
+  };
 }
 
 export async function respondClinicTransfer(transferId: string, accept: boolean): Promise<void> {
   const user = await requireUser();
+  // Seule l'administration valide ou refuse un transfert de dossier.
+  if (user.role !== "admin") return;
   const t = await db.query.clinicTransfer.findFirst({
     where: eq(clinicTransfer.id, transferId),
     with: { animal: true, toClinic: true },
   });
   if (!t || t.status !== "pending") return;
-  const isDestination = user.vet?.status === "verified" && user.vet.clinicId === t.toClinicId;
-  if (!isDestination && user.role !== "admin") return;
 
   const expired = t.expiresAt < new Date();
+  const status = accept && !expired ? "accepted" : expired ? "cancelled" : "rejected";
   await db
     .update(clinicTransfer)
-    .set({ status: accept && !expired ? "accepted" : expired ? "cancelled" : "rejected", resolvedAt: new Date() })
+    .set({ status, resolvedAt: new Date() })
     .where(eq(clinicTransfer.id, t.id));
-  if (accept && !expired) {
+
+  // Résultat communiqué à la personne qui a lancé la demande et à la clinique d'origine.
+  if (status !== "cancelled") {
+    const outcome = status === "accepted" ? "validé" : "refusé";
+    const initiator = t.initiatedById
+      ? await db.query.user.findFirst({ where: eq(schema.user.id, t.initiatedById), columns: { email: true } })
+      : null;
+    const fromEmails = t.fromClinicId ? await clinicEmails(t.fromClinicId) : [];
+    const to = new Set([...fromEmails, initiator?.email].filter((e): e is string => Boolean(e)));
+    const subject = `Transfert du dossier de ${t.animal.name} ${outcome}`;
+    const text = `Bonjour,\n\nL'administration de Puce ID a ${outcome} le transfert du dossier de ${t.animal.name} (puce ${t.animal.chipNumber}) vers ${t.toClinic.name} (${t.toClinic.city}).\n\n${appUrl(`/animaux/${t.animalId}`)}`;
+    await Promise.all([...to].map((email) => sendMail({ to: email, subject, text })));
+  }
+
+  if (status === "accepted") {
     await applyClinicChange(t.animalId, t.toClinicId);
+    await notifyClinic(
+      t.toClinicId,
+      `Nouveau patient : ${t.animal.name}`,
+      `Bonjour,\n\n${t.toClinic.name} est désormais la clinique responsable de ${t.animal.name} (${t.animal.species.toLowerCase()}, puce ${t.animal.chipNumber}).\n\n${appUrl(`/animaux/${t.animalId}`)}`,
+    );
     if (t.animal.ownerEmail) {
       await sendMail({
         to: t.animal.ownerEmail,

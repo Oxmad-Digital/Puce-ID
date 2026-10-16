@@ -17,6 +17,7 @@ import {
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { T } from "./lang-toggle";
 import type { NavIcon, NavItem } from "./nav-config";
 
 const ICONS: Record<NavIcon, typeof Bell> = {
@@ -58,7 +59,7 @@ export function Sidebar({ items }: { items: NavItem[] }) {
             )}
           >
             <Icon className="size-4" strokeWidth={1.8} />
-            {item.label}
+            <T {...item.label} />
           </Link>
         );
       })}
@@ -82,7 +83,7 @@ export function TabNav({ items }: { items: NavItem[] }) {
               : "bg-white text-muted ring-1 ring-line hover:text-brand-700",
           )}
         >
-          {item.label}
+          <T {...item.label} />
         </Link>
       ))}
     </nav>

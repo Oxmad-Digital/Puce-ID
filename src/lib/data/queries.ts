@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, desc, eq, exists, gte, ilike, inArray, isNotNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gt, gte, ilike, inArray, isNotNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { AccessAction } from "@/lib/db/schema";
 import type { AnimalFilters } from "@/lib/filters";
@@ -328,19 +328,22 @@ export async function listClinicTransfers(u: CurrentUser) {
       eq(clinicTransfer.fromClinicId, u.vet.clinicId),
       eq(clinicTransfer.initiatedById, u.id),
     );
-  } else if (u.role !== "admin") {
-    where = or(
-      eq(clinicTransfer.initiatedById, u.id),
-      exists(
-        db
-          .select({ id: animal.id })
-          .from(animal)
-          .where(and(eq(animal.id, clinicTransfer.animalId), eq(animal.ownerId, u.id))),
-      ),
-    );
   }
+  const isOwner = !(u.role === "vet" && u.vet) && u.role !== "admin";
   return db.query.clinicTransfer.findMany({
-    where,
+    // Propriétaire : la sous-requête doit viser l'alias de la requête relationnelle (t), pas la table brute.
+    where: (t) =>
+      isOwner
+        ? or(
+            eq(t.initiatedById, u.id),
+            exists(
+              db
+                .select({ id: animal.id })
+                .from(animal)
+                .where(and(eq(animal.id, t.animalId), eq(animal.ownerId, u.id))),
+            ),
+          )
+        : where,
     with: {
       animal: { columns: { id: true, name: true, species: true, chipNumber: true, ownerId: true } },
       fromClinic: { columns: { id: true, name: true, city: true } },
@@ -349,6 +352,36 @@ export async function listClinicTransfers(u: CurrentUser) {
     orderBy: desc(clinicTransfer.createdAt),
     limit: 100,
   });
+}
+
+/**
+ * Compteur de la cloche (exécuté à chaque page) : transferts de propriété qui me sont proposés
+ * et, pour l'administration, transferts de dossier à valider.
+ */
+export async function notificationCount(u: CurrentUser, now: Date) {
+  const [[incoming], [toValidate]] = await Promise.all([
+    db
+      .select({ total: count() })
+      .from(transfer)
+      .where(and(eq(transfer.status, "pending"), or(eq(transfer.toUserId, u.id), eq(transfer.toEmail, u.email)))),
+    u.role === "admin"
+      ? db
+          .select({ total: count() })
+          .from(clinicTransfer)
+          .where(and(eq(clinicTransfer.status, "pending"), gt(clinicTransfer.expiresAt, now)))
+      : Promise.resolve([{ total: 0 }]),
+  ]);
+  return incoming.total + toValidate.total;
+}
+
+/** Parmi ces animaux, ceux qui ont déjà une demande de changement de clinique en attente. */
+export async function pendingClinicTransferAnimalIds(ids: string[]) {
+  if (ids.length === 0) return new Set<string>();
+  const rows = await db
+    .select({ animalId: clinicTransfer.animalId })
+    .from(clinicTransfer)
+    .where(and(eq(clinicTransfer.status, "pending"), inArray(clinicTransfer.animalId, ids)));
+  return new Set(rows.map((r) => r.animalId));
 }
 
 export async function listReportsFor(u: CurrentUser) {

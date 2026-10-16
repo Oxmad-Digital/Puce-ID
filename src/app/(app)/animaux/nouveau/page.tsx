@@ -2,6 +2,7 @@ import { saveAnimal } from "@/lib/actions/animals";
 import { homeFor, requireUser } from "@/lib/session";
 import { Alert, ButtonLink, PageHeader } from "@/components/ui";
 import { AnimalForm } from "@/components/forms/animal-form";
+import { T } from "@/components/layout/lang-toggle";
 
 export const metadata = { title: "Enregistrer un animal" };
 
@@ -14,14 +15,22 @@ export default async function NewAnimalPage({ searchParams }: PageProps<"/animau
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
-        title="Enregistrer un animal"
-        description="Renseignez l'animal, sa puce et son propriétaire"
-        breadcrumb={[{ label: "Tableau de bord", href: homeFor(user.role) }, { label: "Enregistrer un animal" }]}
+        title={<T fr="Enregistrer un animal" mg="Hanoratra biby" />}
+        description={<T fr="Renseignez l'animal, sa puce et son propriétaire" mg="Fenoy ny mombamomba ny biby, ny puce-ny ary ny tompony" />}
+        breadcrumb={[
+          { label: <T fr="Tableau de bord" mg="Tabilao fanaraha-maso" />, href: homeFor(user.role) },
+          { label: <T fr="Enregistrer un animal" mg="Hanoratra biby" /> },
+        ]}
       />
       {pendingVet ? (
         <Alert tone="amber">
-          Votre numéro d&apos;ordre est en cours de vérification. L&apos;enregistrement d&apos;animaux sera disponible dès
-          la validation de votre compte. <ButtonLink href="/parametres" variant="ghost" size="sm">Voir mon profil</ButtonLink>
+          <T
+            fr="Votre numéro d'ordre est en cours de vérification. L'enregistrement d'animaux sera disponible dès la validation de votre compte."
+            mg="Eo am-panamarinana ny laharanao ao amin'ny Holafitra (Ordre). Afaka manoratra biby ianao rehefa voamarina ny kaontinao."
+          />{" "}
+          <ButtonLink href="/parametres" variant="ghost" size="sm">
+            <T fr="Voir mon profil" mg="Hijery ny mombamomba ahy" />
+          </ButtonLink>
         </Alert>
       ) : (
         <AnimalForm

@@ -1,21 +1,23 @@
 import Link from "next/link";
 import { Logo } from "./logo";
+import { T } from "./lang-toggle";
 
 const columns = [
   {
-    title: "Registre",
+    title: { fr: "Registre", mg: "Rejisitra" },
     links: [
-      { label: "Rechercher une puce", href: "/" },
-      { label: "Enregistrer un animal", href: "/animaux/nouveau" },
-      { label: "Déclarer perdu / trouvé", href: "/perdu-trouve" },
+      { label: "Rechercher une puce", labelMg: "Hikaroka puce", href: "/" },
+      { label: "Enregistrer un animal", labelMg: "Hanoratra biby", href: "/animaux/nouveau" },
+      { label: "Déclarer perdu / trouvé", labelMg: "Hanambara very / hita", href: "/perdu-trouve" },
     ],
   },
   {
-    title: "Ressources",
+    title: { fr: "Ressources", mg: "Loharano" },
     links: [
-      { label: "Vétérinaires partenaires", href: "/veterinaires" },
-      { label: "Questions fréquentes", href: "/faq" },
-      { label: "Guide de l'identification", href: "/guide-identification" },
+      { label: "Vétérinaires partenaires", labelMg: "Dokotera mpiara-miasa", href: "/veterinaires" },
+      { label: "Questions fréquentes", labelMg: "Fanontaniana matetika", href: "/faq" },
+      { label: "Guide de l'identification", labelMg: "Torolalana momba ny famantarana", href: "/guide-identification" },
+      { label: "À propos", labelMg: "Momba anay", href: "/a-propos" },
     ],
   },
 ];
@@ -29,17 +31,22 @@ export function PublicFooter({ compact }: { compact?: boolean }) {
             <div>
               <Logo inverted variant="accent" />
               <p className="mt-3 max-w-xs text-xs leading-relaxed">
-                Le registre des animaux identifiés par puce électronique à Madagascar.
+                <T
+                  fr="Le registre des animaux identifiés par puce électronique à Madagascar."
+                  mg="Ny rejisitry ny biby voamarika amin'ny puce elektronika eto Madagasikara."
+                />
               </p>
             </div>
             {columns.map((col) => (
-              <div key={col.title}>
-                <p className="text-xs font-semibold text-white">{col.title}</p>
+              <div key={col.title.fr}>
+                <p className="text-xs font-semibold text-white">
+                  <T {...col.title} />
+                </p>
                 <ul className="mt-3 space-y-2 text-xs">
                   {col.links.map((l) => (
                     <li key={l.href}>
                       <Link href={l.href} className="hover:text-white">
-                        {l.label}
+                        <T fr={l.label} mg={l.labelMg} />
                       </Link>
                     </li>
                   ))}
@@ -47,7 +54,9 @@ export function PublicFooter({ compact }: { compact?: boolean }) {
               </div>
             ))}
             <div>
-              <p className="text-xs font-semibold text-white">Contact</p>
+              <p className="text-xs font-semibold text-white">
+                <T fr="Contact" mg="Fifandraisana" />
+              </p>
               <ul className="mt-3 space-y-2 text-xs">
                 <li>
                   <a href="mailto:contact@puceid.mg" className="hover:text-white">
@@ -58,7 +67,7 @@ export function PublicFooter({ compact }: { compact?: boolean }) {
                 <li>Antananarivo, Madagascar</li>
                 <li>
                   <Link href="/contact" className="hover:text-white">
-                    Formulaire de contact
+                    <T fr="Formulaire de contact" mg="Taratasy fifandraisana" />
                   </Link>
                 </li>
               </ul>
@@ -68,15 +77,25 @@ export function PublicFooter({ compact }: { compact?: boolean }) {
         {compact && (
           <div className="flex items-center justify-between py-6">
             <Logo inverted variant="accent" />
-            <span className="text-xs">Espace réservé aux vétérinaires vérifiés</span>
+            <span className="text-xs">
+              <T fr="Espace réservé aux vétérinaires vérifiés" mg="Natokana ho an'ny dokotera mpitsabo biby voamarina" />
+            </span>
           </div>
         )}
         <div className="flex flex-col gap-3 border-t border-white/10 py-5 text-[11px] sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 Puce ID. Tous droits réservés.</p>
+          <p>
+            © 2026 Puce ID. <T fr="Tous droits réservés." mg="Zo rehetra voatokana." />
+          </p>
           <div className="flex gap-5">
-            <Link href="/mentions-legales" className="hover:text-white">Mentions légales</Link>
-            <Link href="/confidentialite" className="hover:text-white">Confidentialité</Link>
-            <Link href="/cgu" className="hover:text-white">CGU</Link>
+            <Link href="/mentions-legales" className="hover:text-white">
+              <T fr="Mentions légales" mg="Fampahalalana ara-dalàna" />
+            </Link>
+            <Link href="/confidentialite" className="hover:text-white">
+              <T fr="Confidentialité" mg="Tsiambaratelo" />
+            </Link>
+            <Link href="/cgu" className="hover:text-white">
+              <T fr="CGU" mg="Fepetra fampiasana" />
+            </Link>
           </div>
         </div>
       </div>

@@ -7,7 +7,7 @@ import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
-import { claimRecords } from "@/lib/invitations";
+import { mailConfigured } from "@/lib/mail";
 import { requireUser } from "@/lib/session";
 import { fieldErrorsFrom, str, type ActionState } from "./state";
 
@@ -87,7 +87,9 @@ export async function signUp(_prev: ActionState, form: FormData): Promise<Action
     });
   }
 
-  await claimRecords(userId, d.email);
+  // Pas de claimRecords ici : l'adresse e-mail n'est pas vérifiée à l'inscription, n'importe qui pourrait
+  // récupérer les animaux d'un propriétaire. À rétablir quand la vérification d'e-mail sera activée.
+  // Les comptes invités restent rattachés (createInvitedAccount) : leur adresse est prouvée par l'invitation.
   return { ok: true };
 }
 
@@ -160,4 +162,12 @@ export async function setInitialPassword(_prev: ActionState, form: FormData): Pr
     .set({ mustChangePassword: false, emailVerified: true, updatedAt: new Date() })
     .where(eq(schema.user.id, user.id));
   return { ok: true, message: "Mot de passe enregistré. Bienvenue sur Puce ID !" };
+}
+
+/**
+ * Le formulaire « mot de passe oublié » vérifie d'abord que le service d'e-mail est configuré :
+ * better-auth répond toujours « envoyé » (anti-énumération), même quand l'e-mail ne peut pas partir.
+ */
+export async function passwordResetAvailable() {
+  return mailConfigured();
 }

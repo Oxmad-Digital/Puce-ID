@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { connection } from "next/server";
 import { BadgeCheck, Bell, CircleHelp, Globe } from "lucide-react";
+import { notificationCount } from "@/lib/data/queries";
 import { requireUser } from "@/lib/session";
 import { Badge, Skeleton } from "@/components/ui";
 import { Logo } from "@/components/layout/logo";
-import { LangToggle } from "@/components/layout/lang-toggle";
+import { LangToggle, T } from "@/components/layout/lang-toggle";
 import { NAV } from "@/components/layout/nav-config";
 import { Sidebar, TabNav } from "@/components/layout/app-nav";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -12,7 +14,11 @@ import { UserMenu } from "@/components/layout/user-menu";
 /** Pages dépendantes de la session / de la base : navigation bloquante assumée (streaming via loading.tsx). */
 export const instant = false;
 
-const ROLE_LABEL = { owner: "Propriétaire", vet: "Vétérinaire", admin: "Administrateur" } as const;
+const ROLE_LABEL = {
+  owner: { fr: "Propriétaire", mg: "Tompon'biby" },
+  vet: { fr: "Vétérinaire", mg: "Dokotera mpitsabo biby" },
+  admin: { fr: "Administrateur", mg: "Mpitantana" },
+} as const;
 
 async function HeaderAccount() {
   const user = await requireUser();
@@ -21,21 +27,49 @@ async function HeaderAccount() {
     <>
       {isVet && user.vet?.status === "verified" && (
         <Badge tone="brand" className="hidden md:inline-flex">
-          <BadgeCheck className="size-3" /> Vétérinaire vérifié
+          <BadgeCheck className="size-3" /> <T fr="Vétérinaire vérifié" mg="Dokotera voamarina" />
         </Badge>
       )}
       {isVet && user.vet?.status === "pending" && (
         <Badge tone="amber" className="hidden md:inline-flex">
-          Vérification en cours
+          <T fr="Vérification en cours" mg="Eo am-panamarinana" />
         </Badge>
       )}
       <UserMenu
         name={isVet ? `Dr ${user.name.split(" ").at(-1)}` : user.name}
-        subtitle={isVet ? (user.vet?.clinicName ?? "Vétérinaire") : ROLE_LABEL[user.role]}
+        subtitle={isVet ? (user.vet?.clinicName ?? ROLE_LABEL.vet) : ROLE_LABEL[user.role]}
         tone={isVet ? "accent" : "brand"}
       />
     </>
   );
+}
+
+function BellLink({ count }: { count: number }) {
+  return (
+    <Link
+      href="/notifications"
+      aria-label={count > 0 ? `Notifications (${count})` : "Notifications"}
+      className="flex items-center gap-1 text-xs font-medium text-muted hover:text-brand-700"
+    >
+      <span className="relative">
+        <Bell className="size-4" />
+        {count > 0 && (
+          <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
+            {count > 9 ? "9+" : count}
+          </span>
+        )}
+      </span>{" "}
+      <span className="hidden sm:inline">
+        <T fr="Notifications" mg="Fampahafantarana" />
+      </span>
+    </Link>
+  );
+}
+
+async function NotificationBell() {
+  const user = await requireUser();
+  await connection();
+  return <BellLink count={await notificationCount(user, new Date())} />;
 }
 
 async function Navigation({ variant }: { variant: "sidebar" | "tabs" }) {
@@ -60,10 +94,18 @@ function AppFooter() {
     <footer className="mx-auto mt-12 flex max-w-6xl flex-col gap-2 border-t border-line pt-4 text-[11px] text-subtle sm:flex-row sm:items-center sm:justify-between">
       <span>© 2026 Puce ID</span>
       <nav className="flex flex-wrap gap-x-4 gap-y-1">
-        <Link href="/mentions-legales" className="hover:text-brand-700">Mentions légales</Link>
-        <Link href="/confidentialite" className="hover:text-brand-700">Confidentialité</Link>
-        <Link href="/cgu" className="hover:text-brand-700">CGU</Link>
-        <Link href="/contact" className="hover:text-brand-700">Contact</Link>
+        <Link href="/mentions-legales" className="hover:text-brand-700">
+          <T fr="Mentions légales" mg="Fampahalalana ara-dalàna" />
+        </Link>
+        <Link href="/confidentialite" className="hover:text-brand-700">
+          <T fr="Confidentialité" mg="Tsiambaratelo" />
+        </Link>
+        <Link href="/cgu" className="hover:text-brand-700">
+          <T fr="CGU" mg="Fepetra fampiasana" />
+        </Link>
+        <Link href="/contact" className="hover:text-brand-700">
+          <T fr="Contact" mg="Fifandraisana" />
+        </Link>
       </nav>
     </footer>
   );
@@ -80,22 +122,18 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
               href="/"
               className="hidden items-center gap-1 text-xs font-medium text-muted hover:text-brand-700 sm:flex"
             >
-              <Globe className="size-4" /> Retour au site
+              <Globe className="size-4" /> <T fr="Retour au site" mg="Hiverina amin'ny tranonkala" />
             </Link>
             <LangToggle />
             <Link
               href="/faq"
               className="hidden items-center gap-1 text-xs font-medium text-muted hover:text-brand-700 sm:flex"
             >
-              <CircleHelp className="size-4" /> Aide
+              <CircleHelp className="size-4" /> <T fr="Aide" mg="Fanampiana" />
             </Link>
-            <Link
-              href="/notifications"
-              aria-label="Notifications"
-              className="flex items-center gap-1 text-xs font-medium text-muted hover:text-brand-700"
-            >
-              <Bell className="size-4" /> <span className="hidden sm:inline">Notifications</span>
-            </Link>
+            <Suspense fallback={<BellLink count={0} />}>
+              <NotificationBell />
+            </Suspense>
             <Suspense fallback={<Skeleton className="h-8 w-32" />}>
               <HeaderAccount />
             </Suspense>

@@ -2,14 +2,29 @@ import "server-only";
 
 export type MailMessage = { to: string; subject: string; text: string };
 
+const isProduction = process.env.NODE_ENV === "production";
+
+/**
+ * Un e-mail peut-il partir ? En développement, sans clé, l'envoi est simulé dans la console.
+ * En production, RESEND_API_KEY est obligatoire.
+ */
+export function mailConfigured() {
+  return Boolean(process.env.RESEND_API_KEY) || !isProduction;
+}
+
 /**
  * Envoi d'e-mails transactionnels via l'API HTTP de Resend.
- * Sans RESEND_API_KEY (développement local), le contenu est journalisé côté serveur.
- * Un échec d'envoi est journalisé mais n'interrompt pas l'action en cours.
+ * Développement sans RESEND_API_KEY : le contenu complet est journalisé (mots de passe provisoires compris).
+ * Production : le contenu, les mots de passe et les jetons ne sont jamais journalisés.
+ * Ne lève jamais d'exception : renvoie false si l'e-mail n'est pas parti, à l'appelant de prévenir l'utilisateur.
  */
 export async function sendMail(message: MailMessage): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
+    if (isProduction) {
+      console.error(`[mail] RESEND_API_KEY absente en production : e-mail non envoyé à ${message.to}.`);
+      return false;
+    }
     console.info(`[mail] → ${message.to} · ${message.subject}\n${message.text}`);
     return true;
   }
@@ -36,12 +51,23 @@ export async function sendMail(message: MailMessage): Promise<boolean> {
         await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
         continue;
       }
-      console.error(`[mail] échec ${res.status} → ${message.to} : ${await res.text()}`);
+      // En production, seul le type d'erreur Resend est journalisé (jamais la réponse brute).
+      const detail = isProduction ? await resendErrorName(res) : await res.text();
+      console.error(`[mail] échec ${res.status} → ${message.to} : ${detail}`);
       return false;
     }
   } catch (e) {
-    console.error(`[mail] erreur réseau → ${message.to}`, e);
+    console.error(`[mail] erreur réseau → ${message.to} : ${e instanceof Error ? e.message : "inconnue"}`);
     return false;
+  }
+}
+
+async function resendErrorName(res: Response) {
+  try {
+    const data = (await res.json()) as { name?: unknown };
+    return typeof data.name === "string" ? data.name : "erreur inconnue";
+  } catch {
+    return "réponse illisible";
   }
 }
 
